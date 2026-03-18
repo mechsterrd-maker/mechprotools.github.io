@@ -51,6 +51,8 @@
 #balloonOverlay .balloon-g:hover circle{stroke-width:2.5}
 .mode-indicator{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:var(--acc);color:#fff;padding:5px 14px;border-radius:12px;font-size:11px;font-weight:600;z-index:5;display:none;pointer-events:none}
 .mode-indicator.on{display:block}
+.balloon-canvas-wrap.batch-mode{cursor:crosshair}
+#selectionRect{position:absolute;border:2px dashed #0057b8;background:rgba(0,87,184,.08);pointer-events:none;display:none;z-index:10}
 @media(max-width:768px){.balloon-sidebar{width:220px}.bs-row label{min-width:60px;font-size:10px}}
 </style>
 </head>
@@ -76,6 +78,7 @@
     <div id="canvasContainer" style="position:relative;display:inline-block;margin:auto">
       <canvas id="pdfCanvas" style="display:none"></canvas>
       <svg id="balloonOverlay" style="display:none;position:absolute;top:0;left:0"></svg>
+      <div id="selectionRect"></div>
     </div>
   </div>
 
@@ -129,8 +132,24 @@
 
     <div class="bs-section">
       <div class="bs-title">Mode</div>
-      <button class="bs-btn primary" id="placeModeBtn" onclick="togglePlaceMode()">Place Balloon Mode</button>
-      <button class="bs-btn" id="selectModeBtn" onclick="setSelectMode()">Select / Move Mode</button>
+      <button class="bs-btn primary" id="placeModeBtn" onclick="togglePlaceMode()">Click to Place</button>
+      <button class="bs-btn" id="batchModeBtn" onclick="setBatchMode()">Batch Select Area</button>
+      <button class="bs-btn" id="selectModeBtn" onclick="setSelectMode()">Select / Move</button>
+    </div>
+
+    <div class="bs-section" id="batchOptions" style="display:none">
+      <div class="bs-title">Batch settings</div>
+      <div class="bs-row"><label>Count</label><input type="number" id="batchCount" value="5" min="1" max="50" style="width:60px"><span style="font-size:10px;color:var(--txd)">balloons</span></div>
+      <div class="bs-row"><label>Place along</label>
+        <select id="batchEdge">
+          <option value="top">Top edge</option>
+          <option value="bottom">Bottom edge</option>
+          <option value="left">Left edge</option>
+          <option value="right">Right edge</option>
+          <option value="auto">Auto (nearest edge)</option>
+        </select>
+      </div>
+      <p style="font-size:10px;color:var(--txd);line-height:1.5;margin-top:4px">Draw a rectangle on the drawing. Balloons will be placed along the selected edge with leaders pointing into the selected area.</p>
     </div>
 
     <div class="bs-section" style="flex:1">
@@ -150,8 +169,11 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 let pdfDoc=null,currentPage=1,scale=1.0,balloons=[],selectedBalloon=-1;
-let placeMode=true,isDragging=false,dragIdx=-1,dragOffX=0,dragOffY=0;
+let placeMode=true,batchMode=false,isDragging=false,dragIdx=-1,dragOffX=0,dragOffY=0;
 let leaderDragging=false;
+// Batch selection state
+let batchSelecting=false,batchStartX=0,batchStartY=0;
+const selRect=document.getElementById('selectionRect');
 const canvas=document.getElementById('pdfCanvas');
 const ctx=canvas.getContext('2d');
 const overlay=document.getElementById('balloonOverlay');
@@ -244,28 +266,145 @@ wrap.addEventListener('wheel',function(e){
   },60);
 },{passive:false});
 
-// ========== BALLOON PLACEMENT ==========
-function togglePlaceMode(){
-  placeMode=true;
-  document.getElementById('placeModeBtn').classList.add('primary');
+// ========== MODE SWITCHING ==========
+function clearModes(){
+  placeMode=false;batchMode=false;
+  document.getElementById('placeModeBtn').classList.remove('primary');
+  document.getElementById('batchModeBtn').classList.remove('primary');
   document.getElementById('selectModeBtn').classList.remove('primary');
-  wrap.classList.remove('pan-mode');
+  document.getElementById('batchOptions').style.display='none';
+  wrap.classList.remove('pan-mode','batch-mode');
+}
+function togglePlaceMode(){
+  clearModes();placeMode=true;
+  document.getElementById('placeModeBtn').classList.add('primary');
   document.getElementById('modeInd').textContent='Click on drawing to place balloon';
   document.getElementById('modeInd').classList.add('on');
 }
+function setBatchMode(){
+  clearModes();batchMode=true;
+  document.getElementById('batchModeBtn').classList.add('primary');
+  document.getElementById('batchOptions').style.display='block';
+  wrap.classList.add('batch-mode');
+  document.getElementById('modeInd').textContent='Draw a rectangle to select area for batch balloons';
+  document.getElementById('modeInd').classList.add('on');
+}
 function setSelectMode(){
-  placeMode=false;
+  clearModes();
   document.getElementById('selectModeBtn').classList.add('primary');
-  document.getElementById('placeModeBtn').classList.remove('primary');
   wrap.classList.add('pan-mode');
   document.getElementById('modeInd').textContent='Click balloon to select, drag to move';
   document.getElementById('modeInd').classList.add('on');
   setTimeout(()=>document.getElementById('modeInd').classList.remove('on'),2000);
 }
 
+// ========== BATCH SELECTION — draw rectangle ==========
+canvas.addEventListener('mousedown',function(e){
+  if(!batchMode||!pdfDoc)return;
+  const rect=canvas.getBoundingClientRect();
+  batchStartX=e.clientX-rect.left;
+  batchStartY=e.clientY-rect.top;
+  batchSelecting=true;
+  selRect.style.display='block';
+  selRect.style.left=batchStartX+'px';
+  selRect.style.top=batchStartY+'px';
+  selRect.style.width='0px';
+  selRect.style.height='0px';
+});
+
+canvas.addEventListener('mousemove',function(e){
+  if(!batchSelecting)return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const x=Math.min(batchStartX,mx),y=Math.min(batchStartY,my);
+  const w=Math.abs(mx-batchStartX),h=Math.abs(my-batchStartY);
+  selRect.style.left=x+'px';selRect.style.top=y+'px';
+  selRect.style.width=w+'px';selRect.style.height=h+'px';
+});
+
+canvas.addEventListener('mouseup',function(e){
+  if(!batchSelecting)return;
+  batchSelecting=false;
+  selRect.style.display='none';
+  
+  const rect=canvas.getBoundingClientRect();
+  const endX=e.clientX-rect.left,endY=e.clientY-rect.top;
+  
+  // Calculate selection box in PDF coordinates
+  const x1=Math.min(batchStartX,endX)/scale;
+  const y1=Math.min(batchStartY,endY)/scale;
+  const x2=Math.max(batchStartX,endX)/scale;
+  const y2=Math.max(batchStartY,endY)/scale;
+  const selW=x2-x1,selH=y2-y1;
+  
+  // Minimum selection size
+  if(selW<10||selH<10)return;
+  
+  const count=parseInt(document.getElementById('batchCount').value)||5;
+  const edge=document.getElementById('batchEdge').value;
+  const size=parseInt(document.getElementById('balloonSize').value);
+  const color=document.getElementById('balloonColor').value;
+  const leader=document.getElementById('leaderStyle').value;
+  const lw=parseFloat(document.getElementById('leaderWidth').value);
+  const font=document.getElementById('balloonFont').value;
+  let num=parseInt(document.getElementById('nextNum').value)||1;
+  
+  // Determine which edge to place balloons
+  let placementEdge=edge;
+  if(edge==='auto'){
+    // Find nearest drawing edge
+    const pageW=canvas.width/scale,pageH=canvas.height/scale;
+    const dTop=y1,dBottom=pageH-y2,dLeft=x1,dRight=pageW-x2;
+    const minD=Math.min(dTop,dBottom,dLeft,dRight);
+    if(minD===dTop)placementEdge='top';
+    else if(minD===dBottom)placementEdge='bottom';
+    else if(minD===dLeft)placementEdge='left';
+    else placementEdge='right';
+  }
+  
+  // Calculate balloon positions along the edge and leader tip positions inside selection
+  const offset=size*1.5; // distance of balloon from selection edge
+  
+  for(let i=0;i<count;i++){
+    const t=(count===1)?0.5:(i/(count-1)); // 0 to 1 interpolation
+    let bx,by,tx,ty;
+    
+    if(placementEdge==='top'){
+      // Balloons in a row above the selection
+      bx=x1+selW*0.1+selW*0.8*t;
+      by=y1-offset;
+      tx=bx;
+      ty=y1+selH*(0.15+0.7*t/(count||1)); // distribute tips vertically inside
+      ty=y1+selH*0.3; // uniform tip Y
+      tx=x1+selW*0.1+selW*0.8*t; // tips align with balloons horizontally
+    } else if(placementEdge==='bottom'){
+      bx=x1+selW*0.1+selW*0.8*t;
+      by=y2+offset;
+      tx=bx;
+      ty=y2-selH*0.3;
+    } else if(placementEdge==='left'){
+      bx=x1-offset;
+      by=y1+selH*0.1+selH*0.8*t;
+      tx=x1+selW*0.3;
+      ty=by;
+    } else { // right
+      bx=x2+offset;
+      by=y1+selH*0.1+selH*0.8*t;
+      tx=x2-selW*0.3;
+      ty=by;
+    }
+    
+    balloons.push({num,px:bx,py:by,tipPx:tx,tipPy:ty,size,color,leader,lw,font,page:currentPage});
+    num++;
+  }
+  
+  document.getElementById('nextNum').value=num;
+  renderBalloons();updateList();
+});
+
 // Click on canvas to place balloon — store in PDF coordinates
 canvas.addEventListener('click',function(e){
-  if(!placeMode||!pdfDoc)return;
+  if(!placeMode||batchMode||!pdfDoc)return;
   const rect=canvas.getBoundingClientRect();
   const cx=e.clientX-rect.left;
   const cy=e.clientY-rect.top;
