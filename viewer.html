@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#fff;--bg2:#f5f6f8;--acc:#0066cc;--acc2:#0066cc10;--acch:#004d99;--tx:#11161d;--tx2:#4a5568;--txd:#8994a6;--brd:#dde1e8;--brd2:#edf0f4;--ok:#0d9f6e;--cvs:#eceef2;--sel:#ff6b35;--sel2:#ff6b3520;--meas:#e6194b}
+:root{--bg:#fff;--bg2:#f5f6f8;--acc:#0066cc;--acc2:#0066cc10;--acch:#004d99;--tx:#11161d;--tx2:#4a5568;--txd:#8994a6;--brd:#dde1e8;--brd2:#edf0f4;--ok:#0d9f6e;--cvs:#d8dce4;--sel:#ff6b35;--sel2:#ff6b3520;--meas:#e6194b}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--tx);font-family:'Outfit',sans-serif;overflow:hidden;height:100vh;height:100dvh;width:100vw}
 .mono{font-family:'IBM Plex Mono',monospace}
@@ -120,7 +120,6 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 /* MEASURE CURSOR INDICATOR */
 .meas-cursor{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:var(--meas);color:#fff;padding:4px 12px;border-radius:12px;font-size:10px;font-weight:600;display:none;z-index:5;pointer-events:none}
 .meas-cursor.on{display:block}
-
 .meas-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:5}
 .meas-overlay.active{pointer-events:auto;cursor:crosshair}
 
@@ -221,7 +220,7 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
     <div class="tw"><div class="tg on" id="tSh"></div><span class="tgl">Shadows</span></div>
     <div class="tw"><div class="tg" id="tR"></div><span class="tgl">Auto Rotate</span></div>
     <div class="tw"><div class="tg" id="tBB"></div><span class="tgl">Bounding Box</span></div>
-    <div class="tw"><div class="tg" id="tEdge"></div><span class="tgl">Edge Lines</span></div>
+    <div class="tw"><div class="tg on" id="tEdge"></div><span class="tgl">Edge Lines</span></div>
   </div></div>
 
   <!-- ASSEMBLY / PARTS -->
@@ -299,10 +298,13 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 <div class="bb"><span><span class="sdot"></span>Ready</span><span class="mono" id="pc"></span><span style="margin-left:auto" class="mono">MechProTools v2</span></div>
 
 <script>
+// ============================================================
+//  STATE
+// ============================================================
 let oc=null,scene,camera,renderer,mainGroup,gridH,axisH,bbH,edgeLines=[];
 let isRot=false,isPan=false,rX=-.4,rY=.6,pX=0,pY=0,zm=6;
 let tRX=rX,tRY=rY,tPX=0,tPY=0,tZm=zm,lMX=0,lMY=0;
-let wire=false,autoR=false,showBB=false,showEdges=false;
+let wire=false,autoR=false,showBB=false,showEdges=true;
 let mCol='#8899aa',mMet=.6,mRou=.4,mOpa=1;
 let fc=0,lft=Date.now(),loaded=false;
 let pickMode=false,selectedPartIdx=-1;
@@ -313,55 +315,193 @@ let partsList=[],originalVolume=0,scaleFactor=1,originalBBox=null;
 const vp=document.getElementById('vp');
 const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();
 
+// ============================================================
+//  OCCT ENGINE
+// ============================================================
 async function initOC(){try{oc=await occtimportjs({locateFile:f=>'https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/'+f});}catch(e){console.warn(e);}}
 initOC();
 
-scene=new THREE.Scene();scene.background=new THREE.Color(0xeceef2);
-camera=new THREE.PerspectiveCamera(45,vp.clientWidth/vp.clientHeight,.01,10000);
-renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance'});
-renderer.setSize(vp.clientWidth,vp.clientHeight);renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.3;
+// ============================================================
+//  SCENE SETUP — NX-QUALITY RENDERER
+// ============================================================
+scene=new THREE.Scene();
+
+// Gradient background matching NX light grey studio
+const bgCanvas=document.createElement('canvas');bgCanvas.width=2;bgCanvas.height=512;
+const bgCtx=bgCanvas.getContext('2d');
+const bgGrad=bgCtx.createLinearGradient(0,0,0,512);
+bgGrad.addColorStop(0,'#dfe2e8');
+bgGrad.addColorStop(0.5,'#cdd0d9');
+bgGrad.addColorStop(1,'#b8bcc8');
+bgCtx.fillStyle=bgGrad;bgCtx.fillRect(0,0,2,512);
+const bgTex=new THREE.CanvasTexture(bgCanvas);
+scene.background=bgTex;
+
+camera=new THREE.PerspectiveCamera(40,vp.clientWidth/vp.clientHeight,.01,10000);
+
+// High quality renderer
+renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,powerPreference:'high-performance',alpha:false});
+renderer.setSize(vp.clientWidth,vp.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+renderer.physicallyCorrectLights=true;
 vp.insertBefore(renderer.domElement,vp.firstChild);
-scene.add(new THREE.AmbientLight(0xffffff,.5));
-const kl=new THREE.DirectionalLight(0xffffff,.9);kl.position.set(5,10,7);kl.castShadow=true;kl.shadow.mapSize.set(1024,1024);kl.shadow.camera.near=.5;kl.shadow.camera.far=100;kl.shadow.camera.left=-15;kl.shadow.camera.right=15;kl.shadow.camera.top=15;kl.shadow.camera.bottom=-15;scene.add(kl);
-scene.add(new THREE.DirectionalLight(0x88aacc,.35).translateOnAxis(new THREE.Vector3(-1,.5,-1).normalize(),8));
-scene.add(new THREE.DirectionalLight(0xccaa88,.2).translateOnAxis(new THREE.Vector3(0,1,-1).normalize(),5));
-scene.add(new THREE.HemisphereLight(0xddeeff,0x8899aa,.4));
-const gnd=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.ShadowMaterial({opacity:.12}));gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;scene.add(gnd);
-gridH=new THREE.GridHelper(20,40,0xd0d4da,0xe2e5ec);scene.add(gridH);
+
+// ============================================================
+//  NX-STYLE 3-POINT STUDIO LIGHTING
+// ============================================================
+
+// Hemisphere — sky/ground bounce (cool sky, warm ground)
+const hemi=new THREE.HemisphereLight(0xd8e8f8,0xa08060,0.7);
+scene.add(hemi);
+
+// Key light — main top-left, warm, casts sharp-soft shadow
+const keyLight=new THREE.DirectionalLight(0xfff8f0,2.2);
+keyLight.position.set(6,12,8);
+keyLight.castShadow=true;
+keyLight.shadow.mapSize.set(2048,2048);
+keyLight.shadow.camera.near=0.5;
+keyLight.shadow.camera.far=200;
+keyLight.shadow.camera.left=-20;
+keyLight.shadow.camera.right=20;
+keyLight.shadow.camera.top=20;
+keyLight.shadow.camera.bottom=-20;
+keyLight.shadow.radius=3;   // soft shadow edges
+keyLight.shadow.bias=-0.0005;
+scene.add(keyLight);
+
+// Fill light — right side, cool-blue, no shadow
+const fillLight=new THREE.DirectionalLight(0xc8d8f0,0.55);
+fillLight.position.set(-8,4,-5);
+scene.add(fillLight);
+
+// Rim light — bottom-back, warm, adds NX depth separation
+const rimLight=new THREE.DirectionalLight(0xfff0d8,0.4);
+rimLight.position.set(1,-6,-10);
+scene.add(rimLight);
+
+// Subtle top bounce
+const topLight=new THREE.DirectionalLight(0xeef2f8,0.3);
+topLight.position.set(0,15,0);
+scene.add(topLight);
+
+// ============================================================
+//  GROUND PLANE — soft shadow receiver
+// ============================================================
+const gnd=new THREE.Mesh(
+  new THREE.PlaneGeometry(200,200),
+  new THREE.ShadowMaterial({opacity:0.18,transparent:true})
+);
+gnd.rotation.x=-Math.PI/2;
+gnd.receiveShadow=true;
+scene.add(gnd);
+
+// ============================================================
+//  GRID & AXES
+// ============================================================
+const gridMat1=new THREE.LineBasicMaterial({color:0xb8bcc8,transparent:true,opacity:0.6});
+const gridMat2=new THREE.LineBasicMaterial({color:0xc8cbd4,transparent:true,opacity:0.35});
+gridH=new THREE.GridHelper(20,40,0xb0b4be,0xc4c8d0);
+gridH.material.transparent=true;
+gridH.material.opacity=0.7;
+scene.add(gridH);
 axisH=new THREE.AxesHelper(3);axisH.position.y=.01;scene.add(axisH);
 mainGroup=new THREE.Group();scene.add(mainGroup);
 
+// ============================================================
+//  ENVIRONMENT MAP — procedural studio for reflections
+// ============================================================
+(function buildEnvMap(){
+  const size=128;
+  const envCanvas=document.createElement('canvas');envCanvas.width=size*4;envCanvas.height=size*2;
+  const ec=envCanvas.getContext('2d');
+  // studio environment: bright ceiling, mid walls, dark floor
+  const envGrad=ec.createLinearGradient(0,0,0,size*2);
+  envGrad.addColorStop(0,'#e8edf5');
+  envGrad.addColorStop(0.3,'#d0d8e8');
+  envGrad.addColorStop(0.6,'#b0b8cc');
+  envGrad.addColorStop(1,'#707888');
+  ec.fillStyle=envGrad;ec.fillRect(0,0,size*4,size*2);
+  // bright top light patch
+  const radGrad=ec.createRadialGradient(size*2,size*0.3,0,size*2,size*0.3,size*1.2);
+  radGrad.addColorStop(0,'rgba(255,255,248,0.9)');
+  radGrad.addColorStop(1,'rgba(255,255,248,0)');
+  ec.fillStyle=radGrad;ec.fillRect(0,0,size*4,size*2);
+  const envTex=new THREE.CanvasTexture(envCanvas);
+  envTex.mapping=THREE.EquirectangularReflectionMapping;
+  envTex.encoding=THREE.sRGBEncoding;
+  scene.environment=envTex;
+})();
+
+// ============================================================
+//  MODAL / PROGRESS
+// ============================================================
 function showM(t,m){document.getElementById('mt').textContent=t;document.getElementById('mm').textContent=m;document.getElementById('pf').style.width='0%';document.getElementById('ms').textContent='';document.getElementById('mbg').classList.add('on');}
 function updM(p,s){document.getElementById('pf').style.width=p+'%';if(s)document.getElementById('ms').textContent=s;}
 function hideM(){document.getElementById('mbg').classList.remove('on');}
 function getUnitLabel(){return['mm','cm','m','in'][document.getElementById('unitSelect').selectedIndex];}
 function getUnitMul(){return parseFloat(document.getElementById('unitSelect').value);}
 
-// === VOLUME ===
+// ============================================================
+//  VOLUME
+// ============================================================
 function calcVolume(geo){const pos=geo.attributes.position,idx=geo.index;let vol=0;const tc=idx?idx.count/3:pos.count/3;for(let i=0;i<tc;i++){let a,b,c;if(idx){a=idx.getX(i*3);b=idx.getX(i*3+1);c=idx.getX(i*3+2);}else{a=i*3;b=i*3+1;c=i*3+2;}const ax=pos.getX(a),ay=pos.getY(a),az=pos.getZ(a),bx=pos.getX(b),by=pos.getY(b),bz=pos.getZ(b),cx=pos.getX(c),cy=pos.getY(c),cz=pos.getZ(c);vol+=(ax*(by*cz-cy*bz)+bx*(cy*az-ay*cz)+cx*(ay*bz-by*az))/6;}return Math.abs(vol);}
 
-// === PARSERS ===
-function parseSTL(buf){const h=new TextDecoder().decode(new Uint8Array(buf,0,Math.min(200,buf.byteLength)));if(h.trimStart().startsWith('solid')&&h.indexOf('facet')!==-1){const t=new TextDecoder().decode(buf),v=[],n=[];let cn=[0,0,1];for(const l of t.split('\n')){const s=l.trim();if(s.startsWith('facet normal')){const p=s.split(/\s+/);cn=[+p[2],+p[3],+p[4]];}else if(s.startsWith('vertex')){const p=s.split(/\s+/);v.push(+p[1],+p[2],+p[3]);n.push(...cn);}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(v),3));g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n),3));return g;}const dv=new DataView(buf),nt=dv.getUint32(80,true),v=new Float32Array(nt*9),n=new Float32Array(nt*9);for(let i=0;i<nt;i++){const o=84+i*50,nx=dv.getFloat32(o,true),ny=dv.getFloat32(o+4,true),nz=dv.getFloat32(o+8,true);for(let j=0;j<3;j++){const vo=o+12+j*12;v[i*9+j*3]=dv.getFloat32(vo,true);v[i*9+j*3+1]=dv.getFloat32(vo+4,true);v[i*9+j*3+2]=dv.getFloat32(vo+8,true);n[i*9+j*3]=nx;n[i*9+j*3+1]=ny;n[i*9+j*3+2]=nz;}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(v,3));g.setAttribute('normal',new THREE.BufferAttribute(n,3));return g;}
+// ============================================================
+//  PARSERS
+// ============================================================
+function parseSTL(buf){const h=new TextDecoder().decode(new Uint8Array(buf,0,Math.min(200,buf.byteLength)));if(h.trimStart().startsWith('solid')&&h.indexOf('facet')!==-1){const t=new TextDecoder().decode(buf),v=[],n=[],cn=[0,0,1];for(const l of t.split('\n')){const s=l.trim();if(s.startsWith('facet normal')){const p=s.split(/\s+/);cn[0]=+p[2];cn[1]=+p[3];cn[2]=+p[4];}else if(s.startsWith('vertex')){const p=s.split(/\s+/);v.push(+p[1],+p[2],+p[3]);n.push(cn[0],cn[1],cn[2]);}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(v),3));g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(n),3));return g;}const dv=new DataView(buf),nt=dv.getUint32(80,true),v=new Float32Array(nt*9),n=new Float32Array(nt*9);for(let i=0;i<nt;i++){const o=84+i*50,nx=dv.getFloat32(o,true),ny=dv.getFloat32(o+4,true),nz=dv.getFloat32(o+8,true);for(let j=0;j<3;j++){const vo=o+12+j*12;v[i*9+j*3]=dv.getFloat32(vo,true);v[i*9+j*3+1]=dv.getFloat32(vo+4,true);v[i*9+j*3+2]=dv.getFloat32(vo+8,true);n[i*9+j*3]=nx;n[i*9+j*3+1]=ny;n[i*9+j*3+2]=nz;}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(v,3));g.setAttribute('normal',new THREE.BufferAttribute(n,3));return g;}
+
 function parseOBJ(txt){const pos=[],norm=[],fv=[],fn=[];for(const l of txt.split('\n')){const t=l.trim();if(t.startsWith('v ')){const p=t.split(/\s+/);pos.push([+p[1],+p[2],+p[3]]);}else if(t.startsWith('vn ')){const p=t.split(/\s+/);norm.push([+p[1],+p[2],+p[3]]);}else if(t.startsWith('f ')){const pts=t.split(/\s+/).slice(1).map(p=>{const i=p.split('/');return{v:parseInt(i[0])-1,n:i[2]?parseInt(i[2])-1:-1};});for(let i=1;i<pts.length-1;i++){for(const idx of[pts[0],pts[i],pts[i+1]]){fv.push(...(pos[idx.v]||[0,0,0]));fn.push(...(idx.n>=0&&norm[idx.n]?norm[idx.n]:[0,0,1]));}}}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(fv),3));g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(fn),3));return g;}
+
 function parsePLY(buf){const t=new TextDecoder().decode(buf),he=t.indexOf('end_header');if(he===-1)return new THREE.BufferGeometry();const hdr=t.substring(0,he),vc=parseInt((hdr.match(/element vertex (\d+)/)||[0,0])[1]),fcc=parseInt((hdr.match(/element face (\d+)/)||[0,0])[1]);const lines=t.substring(he+'end_header'.length).trim().split('\n'),vs=[];for(let i=0;i<vc&&i<lines.length;i++){const p=lines[i].trim().split(/\s+/);vs.push([+p[0],+p[1],+p[2]]);}const fv=[];for(let i=vc;i<vc+fcc&&i<lines.length;i++){const p=lines[i].trim().split(/\s+/);const n=+p[0];const idx=p.slice(1).map(Number);for(let j=1;j<n-1;j++){for(const id of[idx[0],idx[j],idx[j+1]]){if(vs[id])fv.push(...vs[id]);}}}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(fv),3));g.computeVertexNormals();return g;}
+
 function occtToMeshes(res){if(!res.success||!res.meshes||!res.meshes.length)throw new Error('No geometry found.');const out=[],clr=['#8899aa','#5b8def','#e67e22','#27ae60','#c0392b','#8e44ad','#2c3e50','#d4a574','#16a085','#e74c3c'];for(let i=0;i<res.meshes.length;i++){const m=res.meshes[i];if(!m.attributes||!m.attributes.position||!m.attributes.position.array.length)continue;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(m.attributes.position.array),3));if(m.attributes.normal)g.setAttribute('normal',new THREE.BufferAttribute(new Float32Array(m.attributes.normal.array),3));else g.computeVertexNormals();if(m.index)g.setIndex(new THREE.BufferAttribute(new Uint32Array(m.index.array),1));out.push({geometry:g,color:clr[i%clr.length],name:m.name||'Part '+(i+1)});}if(!out.length)throw new Error('No visible geometry.');return out;}
 
-// === DISPLAY ===
+// ============================================================
+//  DISPLAY — NX-QUALITY MATERIAL
+// ============================================================
 function clearModel(){while(mainGroup.children.length)mainGroup.remove(mainGroup.children[0]);if(bbH){scene.remove(bbH);bbH=null;}edgeLines.forEach(e=>scene.remove(e));edgeLines=[];clearAllMeas();partsList=[];originalVolume=0;selectedPartIdx=-1;updateSelUI();}
+
+function makeMaterial(colorHex){
+  // MeshStandardMaterial = PBR — responds correctly to env map & all lights
+  return new THREE.MeshStandardMaterial({
+    color:new THREE.Color(colorHex),
+    metalness:mMet,
+    roughness:mRou,
+    wireframe:wire,
+    transparent:mOpa<1,
+    opacity:mOpa,
+    side:THREE.DoubleSide,
+    emissive:new THREE.Color(0x000000),
+    emissiveIntensity:0,
+    envMapIntensity:0.9,  // subtle studio reflections on curved surfaces
+  });
+}
+
 function displayMeshes(meshes,fname,fsize,singleGeo){
-  clearModel();const geos=singleGeo?[{geometry:singleGeo,color:mCol,name:'Model'}]:meshes;
+  clearModel();
+  const geos=singleGeo?[{geometry:singleGeo,color:mCol,name:'Model'}]:meshes;
   const tb=new THREE.Box3();let rawVol=0,tv=0,tf=0;
   geos.forEach(m=>{m.geometry.computeBoundingBox();tb.expandByObject(new THREE.Mesh(m.geometry));rawVol+=calcVolume(m.geometry);const vn=m.geometry.attributes.position.count;tf+=m.geometry.index?m.geometry.index.count/3:vn/3;tv+=vn;});
   const cen=new THREE.Vector3();tb.getCenter(cen);const sz=new THREE.Vector3();tb.getSize(sz);
   originalVolume=rawVol;originalBBox=sz.clone();const maxD=Math.max(sz.x,sz.y,sz.z);scaleFactor=maxD>0?4/maxD:1;
   const clr=['#5b8def','#e67e22','#27ae60','#c0392b','#8e44ad','#2c3e50','#d4a574','#16a085','#f39c12','#e74c3c'];
-  geos.forEach((m,i)=>{const g=m.geometry.clone();g.translate(-cen.x,-cen.y,-cen.z);
-    const mat=new THREE.MeshStandardMaterial({color:new THREE.Color(singleGeo?mCol:m.color),metalness:mMet,roughness:mRou,wireframe:wire,transparent:mOpa<1,opacity:mOpa,side:THREE.DoubleSide,emissive:new THREE.Color(0x000000)});
-    const mesh=new THREE.Mesh(g,mat);mesh.scale.set(scaleFactor,scaleFactor,scaleFactor);mesh.castShadow=true;mesh.receiveShadow=true;
-    mesh.userData.partIndex=i;mainGroup.add(mesh);
-    // Store original geometry bbox for part info
+  geos.forEach((m,i)=>{
+    const g=m.geometry.clone();
+    g.translate(-cen.x,-cen.y,-cen.z);
+    // Smooth normals for CAD-quality shading
+    g.computeVertexNormals();
+    const mat=makeMaterial(singleGeo?mCol:m.color);
+    const mesh=new THREE.Mesh(g,mat);
+    mesh.scale.set(scaleFactor,scaleFactor,scaleFactor);
+    mesh.castShadow=true;mesh.receiveShadow=true;
+    mesh.userData.partIndex=i;
+    mainGroup.add(mesh);
     g.computeBoundingBox();const pbb=new THREE.Vector3();g.boundingBox.getSize(pbb);
     partsList.push({mesh,name:m.name||'Part '+(i+1),visible:true,color:singleGeo?clr[i%clr.length]:m.color,origColor:singleGeo?mCol:m.color,verts:g.attributes.position.count,faces:g.index?g.index.count/3:g.attributes.position.count/3,bbox:pbb.clone().divideScalar(scaleFactor)});
   });
@@ -371,25 +511,78 @@ function displayMeshes(meshes,fname,fsize,singleGeo){
   document.getElementById('pVt').textContent=tv.toLocaleString();
   document.getElementById('pFc').textContent=Math.floor(tf).toLocaleString();
   document.getElementById('pDm').textContent=sz.x.toFixed(1)+'×'+sz.y.toFixed(1)+'×'+sz.z.toFixed(1);
-  document.getElementById('pSz').textContent=fmtB(fsize);document.getElementById('pc').textContent='Polys: '+Math.floor(tf).toLocaleString();
-  document.getElementById('mn').textContent=fname;document.getElementById('io').style.display='block';
-  tZm=6;tRX=-.4;tRY=.6;tPX=0;tPY=mainGroup.position.y/2;loaded=true;document.getElementById('uz').classList.add('hid');
-  updateWeight();buildTree();if(showBB)addBB();if(showEdges)addEdges();}
+  document.getElementById('pSz').textContent=fmtB(fsize);
+  document.getElementById('pc').textContent='Polys: '+Math.floor(tf).toLocaleString();
+  document.getElementById('mn').textContent=fname;
+  document.getElementById('io').style.display='block';
+  tZm=6;tRX=-.4;tRY=.6;tPX=0;tPY=mainGroup.position.y/2;loaded=true;
+  document.getElementById('uz').classList.add('hid');
+  updateWeight();buildTree();if(showBB)addBB();
+  // Always show edges by default — key NX feature
+  addEdges();
+  document.getElementById('tEdge').classList.add('on');
+}
+
 function addBB(){if(bbH){scene.remove(bbH);bbH=null;}if(!mainGroup.children.length)return;bbH=new THREE.BoxHelper(mainGroup,0x0066cc);scene.add(bbH);}
-function addEdges(){edgeLines.forEach(e=>scene.remove(e));edgeLines=[];mainGroup.traverse(c=>{if(c.isMesh&&c.visible){const eg=new THREE.EdgesGeometry(c.geometry,30);const em=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({color:0x333333,opacity:.3,transparent:true}));em.scale.copy(c.scale);em.position.copy(c.position);scene.add(em);edgeLines.push(em);}});}
+
+function addEdges(){
+  edgeLines.forEach(e=>scene.remove(e));edgeLines=[];
+  mainGroup.traverse(c=>{
+    if(c.isMesh&&c.visible){
+      // 20 degrees crease angle — shows feature edges like NX, not every poly edge
+      const eg=new THREE.EdgesGeometry(c.geometry,20);
+      const em=new THREE.LineSegments(eg,new THREE.LineBasicMaterial({
+        color:0x1a2535,
+        opacity:0.28,
+        transparent:true,
+        depthBias:1
+      }));
+      em.scale.copy(c.scale);
+      em.position.copy(c.position);
+      em.renderOrder=1;
+      scene.add(em);edgeLines.push(em);
+    }
+  });
+}
+
 function fmtB(b){if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(1)+' MB';}
 
-// ============================== PART PICKING ==============================
+// ============================================================
+//  MATERIAL UPDATE
+// ============================================================
+function uMat(){
+  mainGroup.traverse(c=>{
+    if(c.isMesh){
+      const pi=c.userData.partIndex;
+      const isSelected=(pi===selectedPartIdx);
+      c.material.color.set(mCol);
+      c.material.metalness=mMet;
+      c.material.roughness=mRou;
+      c.material.wireframe=wire;
+      c.material.opacity=mOpa;
+      c.material.transparent=mOpa<1;
+      c.material.emissive.setHex(isSelected?0xff6b35:0x000000);
+      c.material.emissiveIntensity=isSelected?.25:0;
+      c.material.envMapIntensity=0.9;
+      c.material.needsUpdate=true;
+    }
+  });
+}
+
+// ============================================================
+//  PART PICKING
+// ============================================================
 function selectPart(idx){
-  // Deselect previous
   if(selectedPartIdx>=0&&selectedPartIdx<partsList.length){
     const prev=partsList[selectedPartIdx];
-    prev.mesh.material.emissive.setHex(0x000000);prev.mesh.material.emissiveIntensity=0;
+    prev.mesh.material.emissive.setHex(0x000000);
+    prev.mesh.material.emissiveIntensity=0;
   }
   selectedPartIdx=idx;
   if(idx>=0&&idx<partsList.length){
     const p=partsList[idx];
-    p.mesh.material.emissive.setHex(0xff6b35);p.mesh.material.emissiveIntensity=.3;
+    p.mesh.material.emissive.setHex(0xff6b35);
+    p.mesh.material.emissiveIntensity=.25;
   }
   updateSelUI();buildTree();
 }
@@ -406,40 +599,47 @@ function updateSelUI(){
     document.getElementById('selFaces').textContent=Math.floor(p.faces).toLocaleString();
     const u=getUnitLabel();
     document.getElementById('selSize').textContent=p.bbox.x.toFixed(1)+'×'+p.bbox.y.toFixed(1)+'×'+p.bbox.z.toFixed(1)+' '+u;
-  }else{
-    badge.classList.remove('on');info.style.display='none';
-  }
+  }else{badge.classList.remove('on');info.style.display='none';}
 }
+
 document.getElementById('selBadgeX').addEventListener('click',()=>selectPart(-1));
 document.getElementById('pickBtn').addEventListener('click',function(){pickMode=!pickMode;this.classList.toggle('on',pickMode);if(pickMode&&measMode)toggleMeas();renderer.domElement.style.cursor=pickMode?'pointer':'';});
 
 function doPickAt(cx,cy){
-  if(!loaded)return;const rect=renderer.domElement.getBoundingClientRect();
-  mouse.x=((cx-rect.left)/rect.width)*2-1;mouse.y=-((cy-rect.top)/rect.height)*2+1;
-  raycaster.setFromCamera(mouse,camera);const hits=raycaster.intersectObjects(mainGroup.children,true);
+  if(!loaded)return;
+  const rect=renderer.domElement.getBoundingClientRect();
+  mouse.x=((cx-rect.left)/rect.width)*2-1;
+  mouse.y=-((cy-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects(mainGroup.children,true);
   if(hits.length){const pi=hits[0].object.userData.partIndex;if(pi!==undefined)selectPart(pi);}
   else selectPart(-1);
 }
 
-// ============================== ASSEMBLY TREE ==============================
+// ============================================================
+//  ASSEMBLY TREE
+// ============================================================
 function buildTree(){
-  const list=document.getElementById('treeList');list.innerHTML='';document.getElementById('partCount').textContent=partsList.length;
+  const list=document.getElementById('treeList');list.innerHTML='';
+  document.getElementById('partCount').textContent=partsList.length;
   const clr=['#5b8def','#e67e22','#27ae60','#c0392b','#8e44ad','#2c3e50','#d4a574','#16a085','#f39c12','#e74c3c'];
   partsList.forEach((p,i)=>{
-    const el=document.createElement('div');el.className='tree-item'+(i===selectedPartIdx?' selected':'');
+    const el=document.createElement('div');
+    el.className='tree-item'+(i===selectedPartIdx?' selected':'');
     el.innerHTML=`<div class="tree-eye${p.visible?'':' off'}" data-i="${i}"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 7s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4z"/><circle cx="7" cy="7" r="1.5"/></svg></div><div class="tree-dot" style="background:${p.color||clr[i%clr.length]}"></div><span class="tree-name">${p.name}</span>`;
     list.appendChild(el);
-    // Eye toggle
     el.querySelector('.tree-eye').addEventListener('click',function(ev){ev.stopPropagation();const idx=+this.dataset.i;partsList[idx].visible=!partsList[idx].visible;partsList[idx].mesh.visible=partsList[idx].visible;this.classList.toggle('off');if(showEdges)addEdges();});
-    // Click to select
     el.addEventListener('click',function(ev){if(ev.target.closest('.tree-eye'))return;selectPart(i);});
   });
 }
+
 document.getElementById('showAllBtn').addEventListener('click',()=>{partsList.forEach(p=>{p.visible=true;p.mesh.visible=true;});buildTree();if(showEdges)addEdges();});
 document.getElementById('hideAllBtn').addEventListener('click',()=>{partsList.forEach(p=>{p.visible=false;p.mesh.visible=false;});buildTree();edgeLines.forEach(e=>scene.remove(e));edgeLines=[];});
 document.getElementById('isoBtn').addEventListener('click',()=>{if(selectedPartIdx<0)return;partsList.forEach((p,i)=>{p.visible=(i===selectedPartIdx);p.mesh.visible=p.visible;});buildTree();if(showEdges)addEdges();});
 
-// ============================== WEIGHT ==============================
+// ============================================================
+//  WEIGHT CALCULATOR
+// ============================================================
 function updateWeight(){
   if(!loaded||originalVolume===0){document.getElementById('wWt').textContent='—';document.getElementById('wVol').textContent='—';return;}
   const um=getUnitMul();const volMM3=originalVolume*um*um*um;const volCM3=volMM3/1000;const volM3=volMM3/1e9;
@@ -453,28 +653,32 @@ function updateWeight(){
     else if(w<1)document.getElementById('wWt').textContent=(w*1000).toFixed(2)+' g';
     else if(w<1000)document.getElementById('wWt').textContent=w.toFixed(2)+' kg';
     else document.getElementById('wWt').textContent=(w/1000).toFixed(3)+' ton';
-  }else document.getElementById('wWt').textContent='—';}
+  }else document.getElementById('wWt').textContent='—';
+}
 document.getElementById('matSelect').addEventListener('change',function(){document.getElementById('cdWrap').style.display=this.value==='0'?'block':'none';updateWeight();});
 document.getElementById('cdVal').addEventListener('input',updateWeight);
 document.getElementById('unitSelect').addEventListener('change',()=>{updateWeight();updateSelUI();});
 
-// ============================== MEASUREMENT ==============================
+// ============================================================
+//  MEASUREMENT
+// ============================================================
 function toggleMeas(){measMode=!measMode;document.getElementById('measBtn').classList.toggle('on',measMode);document.getElementById('measOv').classList.toggle('active',measMode);document.getElementById('measBar').classList.toggle('on',measMode);document.getElementById('measCursor').classList.toggle('on',measMode);if(measMode){if(pickMode){pickMode=false;document.getElementById('pickBtn').classList.remove('on');renderer.domElement.style.cursor='';}measPt1=null;measPt2=null;document.getElementById('measCursor').textContent='Tap first point';}else{document.getElementById('measCursor').classList.remove('on');}}
 function addMeasDot(pt,col){const sg=new THREE.SphereGeometry(.05,8,8);const sp=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({color:col||0xe6194b,depthTest:false}));sp.position.copy(pt);sp.renderOrder=999;scene.add(sp);measObjects.push(sp);return sp;}
 function addMeasLine(a,b){const lg=new THREE.BufferGeometry().setFromPoints([a,b]);const ln=new THREE.Line(lg,new THREE.LineBasicMaterial({color:0xe6194b,linewidth:2,depthTest:false}));ln.renderOrder=999;scene.add(ln);measObjects.push(ln);}
 function clearAllMeas(){measObjects.forEach(o=>scene.remove(o));measObjects=[];measEntries=[];document.getElementById('measList').innerHTML='';document.getElementById('measResult').style.display='none';measPt1=null;measPt2=null;}
 function addMeasEntry(label,val){measEntries.push({label,val});renderMeasList();}
-function renderMeasList(){const list=document.getElementById('measList');list.innerHTML='';measEntries.forEach((e,i)=>{const el=document.createElement('div');el.className='meas-entry';el.innerHTML=`<span>${e.label}</span><span class="val">${e.val}</span>`;list.appendChild(el);});}
+function renderMeasList(){const list=document.getElementById('measList');list.innerHTML='';measEntries.forEach((e)=>{const el=document.createElement('div');el.className='meas-entry';el.innerHTML=`<span>${e.label}</span><span class="val">${e.val}</span>`;list.appendChild(el);});}
 
 function doMeasClick(cx,cy){
-  if(!measMode||!loaded)return;const rect=renderer.domElement.getBoundingClientRect();
+  if(!measMode||!loaded)return;
+  const rect=renderer.domElement.getBoundingClientRect();
   mouse.x=((cx-rect.left)/rect.width)*2-1;mouse.y=-((cy-rect.top)/rect.height)*2+1;
-  raycaster.setFromCamera(mouse,camera);const hits=raycaster.intersectObjects(mainGroup.children,true);
+  raycaster.setFromCamera(mouse,camera);
+  const hits=raycaster.intersectObjects(mainGroup.children,true);
   if(!hits.length)return;const pt=hits[0].point.clone();const u=getUnitLabel();
-
   if(measType==='point'){
-    if(!measPt1){measPt1=pt;addMeasDot(pt);document.getElementById('measCursor').textContent='Tap second point';
-    }else{
+    if(!measPt1){measPt1=pt;addMeasDot(pt);document.getElementById('measCursor').textContent='Tap second point';}
+    else{
       measPt2=pt;addMeasDot(pt);addMeasLine(measPt1,measPt2);
       const dist=measPt1.distanceTo(measPt2)/scaleFactor;
       document.getElementById('measResult').style.display='block';
@@ -483,24 +687,24 @@ function doMeasClick(cx,cy){
       const dx=Math.abs(measPt2.x-measPt1.x)/scaleFactor,dy=Math.abs(measPt2.y-measPt1.y)/scaleFactor,dz=Math.abs(measPt2.z-measPt1.z)/scaleFactor;
       document.getElementById('measExtra').innerHTML=`ΔX: ${dx.toFixed(2)} ${u} · ΔY: ${dy.toFixed(2)} ${u} · ΔZ: ${dz.toFixed(2)} ${u}`;
       addMeasEntry('P2P',dist.toFixed(2)+' '+u);
-      measMode=false;document.getElementById('measBtn').classList.remove('on');document.getElementById('measOv').classList.remove('active');document.getElementById('measBar').classList.remove('on');document.getElementById('measCursor').classList.remove('on');
+      measMode=false;
+      document.getElementById('measBtn').classList.remove('on');
+      document.getElementById('measOv').classList.remove('active');
+      document.getElementById('measBar').classList.remove('on');
+      document.getElementById('measCursor').classList.remove('on');
       measPt1=null;measPt2=null;
     }
   }
 }
 
-// Bounding Box measurement
 document.getElementById('measBB').addEventListener('click',()=>{
   if(!loaded||!originalBBox)return;const u=getUnitLabel();
   document.getElementById('measResult').style.display='block';
   document.getElementById('measType').textContent='Model Bounding Box';
   document.getElementById('measBig').textContent=originalBBox.x.toFixed(2)+' × '+originalBBox.y.toFixed(2)+' × '+originalBBox.z.toFixed(2)+' '+u;
-  const diag=originalBBox.length();
-  document.getElementById('measExtra').innerHTML=`Diagonal: ${diag.toFixed(2)} ${u}`;
+  document.getElementById('measExtra').innerHTML=`Diagonal: ${originalBBox.length().toFixed(2)} ${u}`;
   addMeasEntry('BBox',originalBBox.x.toFixed(1)+'×'+originalBBox.y.toFixed(1)+'×'+originalBBox.z.toFixed(1)+' '+u);
 });
-
-// Part size measurement
 document.getElementById('measPart').addEventListener('click',()=>{
   if(!loaded||selectedPartIdx<0)return;const p=partsList[selectedPartIdx];const u=getUnitLabel();
   document.getElementById('measResult').style.display='block';
@@ -509,20 +713,30 @@ document.getElementById('measPart').addEventListener('click',()=>{
   document.getElementById('measExtra').innerHTML=`Verts: ${p.verts.toLocaleString()} · Faces: ${Math.floor(p.faces).toLocaleString()}`;
   addMeasEntry(p.name,p.bbox.x.toFixed(1)+'×'+p.bbox.y.toFixed(1)+'×'+p.bbox.z.toFixed(1)+' '+u);
 });
-
 document.getElementById('measOv').addEventListener('click',e=>doMeasClick(e.clientX,e.clientY));
 document.getElementById('measOv').addEventListener('touchend',e=>{if(e.changedTouches.length)doMeasClick(e.changedTouches[0].clientX,e.changedTouches[0].clientY);});
 document.getElementById('measBtn').addEventListener('click',()=>{measType='point';toggleMeas();document.querySelectorAll('.meas-btn').forEach(b=>b.classList.remove('on'));document.getElementById('measPt').classList.add('on');});
 document.getElementById('measPt').addEventListener('click',()=>{measType='point';if(!measMode)toggleMeas();document.querySelectorAll('.meas-btn').forEach(b=>b.classList.remove('on'));document.getElementById('measPt').classList.add('on');});
 document.getElementById('clrMeasBtn').addEventListener('click',clearAllMeas);
 
-// ============================== MULTI-VIEW ==============================
-function setupMV(){const views=[{id:'mv-top',rx:-Math.PI/2,ry:0},{id:'mv-iso',rx:-.6,ry:.8},{id:'mv-front',rx:0,ry:0},{id:'mv-right',rx:0,ry:-Math.PI/2}];mvRenderers=[];mvCameras=[];
-views.forEach(v=>{const cell=document.getElementById(v.id);const old=cell.querySelector('canvas');if(old)old.remove();const r=new THREE.WebGLRenderer({antialias:true});r.setPixelRatio(Math.min(window.devicePixelRatio,1.5));r.toneMapping=THREE.ACESFilmicToneMapping;r.toneMappingExposure=1.3;cell.appendChild(r.domElement);mvRenderers.push(r);mvCameras.push({cam:new THREE.PerspectiveCamera(45,1,.01,10000),rx:v.rx,ry:v.ry});});}
+// ============================================================
+//  MULTI-VIEW
+// ============================================================
 function renderMV(){if(!multiViewActive)return;mvCameras.forEach((vc,i)=>{const cell=mvRenderers[i].domElement.parentElement;const w=cell.clientWidth,h=cell.clientHeight;mvRenderers[i].setSize(w,h);vc.cam.aspect=w/h;vc.cam.updateProjectionMatrix();vc.cam.position.set(Math.sin(vc.ry)*Math.cos(vc.rx)*tZm+pX,Math.sin(vc.rx)*tZm+pY,Math.cos(vc.ry)*Math.cos(vc.rx)*tZm);vc.cam.lookAt(pX,pY,0);mvRenderers[i].render(scene,vc.cam);});}
+function setupMV(){const views=[{id:'mv-top',rx:-Math.PI/2,ry:0},{id:'mv-iso',rx:-.6,ry:.8},{id:'mv-front',rx:0,ry:0},{id:'mv-right',rx:0,ry:-Math.PI/2}];mvRenderers=[];mvCameras=[];
+views.forEach(v=>{const cell=document.getElementById(v.id);const old=cell.querySelector('canvas');if(old)old.remove();
+  const r=new THREE.WebGLRenderer({antialias:true});
+  r.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
+  r.outputEncoding=THREE.sRGBEncoding;
+  r.toneMapping=THREE.ACESFilmicToneMapping;
+  r.toneMappingExposure=1.1;
+  r.shadowMap.enabled=true;r.shadowMap.type=THREE.PCFSoftShadowMap;
+  cell.appendChild(r.domElement);mvRenderers.push(r);mvCameras.push({cam:new THREE.PerspectiveCamera(40,1,.01,10000),rx:v.rx,ry:v.ry});});}
 document.getElementById('mvBtn').addEventListener('click',function(){multiViewActive=!multiViewActive;this.classList.toggle('on');document.getElementById('multiView').classList.toggle('on',multiViewActive);renderer.domElement.style.display=multiViewActive?'none':'block';document.getElementById('vctl').style.display=multiViewActive?'none':'flex';document.getElementById('vpreset').style.display=multiViewActive?'none':'flex';if(multiViewActive)setupMV();else{mvRenderers.forEach(r=>{r.dispose();r.domElement.remove();});mvRenderers=[];mvCameras=[];}});
 
-// ============================== FILE HANDLER ==============================
+// ============================================================
+//  FILE HANDLER
+// ============================================================
 async function handleFile(file){if(!file)return;const n=file.name.toLowerCase();const validExts=['.step','.stp','.iges','.igs','.brep','.brp','.stl','.obj','.ply'];const ext='.'+n.split('.').pop();if(!validExts.includes(ext)){alert('Supported: STEP, STP, IGES, IGS, STL, OBJ, PLY, BREP');return;}
 const isCAD=ext==='.step'||ext==='.stp'||ext==='.iges'||ext==='.igs'||ext==='.brep'||ext==='.brp';
 if(isCAD){showM('Loading '+file.name,'');updM(10);if(!oc){updM(20,'Downloading engine (~7MB)…');let t=0;while(!oc&&t<120){await new Promise(r=>setTimeout(r,500));t++;updM(Math.min(60,20+t));}if(!oc){hideM();alert('Engine failed. Refresh.');return;}}updM(50,'Parsing…');}
@@ -532,17 +746,18 @@ else{if(ext==='.stl')geo=parseSTL(e.target.result);else if(ext==='.obj')geo=pars
 if(isCAD){updM(100,'Done!');await new Promise(r=>setTimeout(r,250));}hideM();
 }catch(err){hideM();console.error(err);alert('Error:\n'+err.message);}};
 if(ext==='.obj')reader.readAsText(file);else reader.readAsArrayBuffer(file);}
+
 document.getElementById('fi').addEventListener('change',function(){if(this.files&&this.files[0])handleFile(this.files[0]);this.value='';});
 ['dragenter','dragover'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();document.getElementById('dovl').classList.add('on');}));
 ['dragleave','drop'].forEach(ev=>document.getElementById('dovl').addEventListener(ev,e=>{e.preventDefault();document.getElementById('dovl').classList.remove('on');}));
 document.getElementById('dovl').addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
 
-// ============================== ORBIT ==============================
+// ============================================================
+//  ORBIT CONTROLS
+// ============================================================
 let moved=false;
 renderer.domElement.addEventListener('mousedown',e=>{moved=false;if(e.button===0&&!measMode){isRot=true;}if(e.button===1){isPan=true;e.preventDefault();}if(e.button===2)isPan=true;lMX=e.clientX;lMY=e.clientY;});
-window.addEventListener('mouseup',e=>{
-  if(e.button===0&&!moved&&pickMode&&!measMode)doPickAt(e.clientX,e.clientY);
-  isRot=false;isPan=false;});
+window.addEventListener('mouseup',e=>{if(e.button===0&&!moved&&pickMode&&!measMode)doPickAt(e.clientX,e.clientY);isRot=false;isPan=false;});
 renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
 window.addEventListener('mousemove',e=>{const dx=e.clientX-lMX,dy=e.clientY-lMY;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;lMX=e.clientX;lMY=e.clientY;if(isRot&&!measMode){tRY+=dx*.006;tRX+=dy*.006;tRX=Math.max(-Math.PI/2,Math.min(Math.PI/2,tRX));}if(isPan){tPX-=dx*.004*zm*.2;tPY+=dy*.004*zm*.2;}});
 renderer.domElement.addEventListener('wheel',e=>{tZm*=e.deltaY>0?1.08:.92;tZm=Math.max(.3,Math.min(200,tZm));e.preventDefault();},{passive:false});
@@ -552,36 +767,56 @@ renderer.domElement.addEventListener('touchstart',function(e){touchMoved=false;i
 renderer.domElement.addEventListener('touchmove',function(e){e.preventDefault();touchMoved=true;if(e.touches.length===1&&isRot){const dx=e.touches[0].clientX-lMX,dy=e.touches[0].clientY-lMY;lMX=e.touches[0].clientX;lMY=e.touches[0].clientY;tRY+=dx*.006;tRX+=dy*.006;tRX=Math.max(-Math.PI/2,Math.min(Math.PI/2,tRX));}else if(e.touches.length===2&&twoT){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);tZm*=d>ltd?.97:1.03;tZm=Math.max(.3,Math.min(200,tZm));ltd=d;const cx=(e.touches[0].clientX+e.touches[1].clientX)/2,cy=(e.touches[0].clientY+e.touches[1].clientY)/2;tPX-=(cx-lMX)*.003*zm*.2;tPY+=(cy-lMY)*.003*zm*.2;lMX=cx;lMY=cy;}},{passive:false});
 renderer.domElement.addEventListener('touchend',function(e){isRot=false;twoT=false;if(!touchMoved&&e.changedTouches.length&&pickMode&&!measMode){doPickAt(e.changedTouches[0].clientX,e.changedTouches[0].clientY);}},{passive:true});
 
-// ============================== ANIMATE ==============================
-function animate(){requestAnimationFrame(animate);if(autoR&&loaded)tRY+=.003;
-rX+=(tRX-rX)*.1;rY+=(tRY-rY)*.1;pX+=(tPX-pX)*.1;pY+=(tPY-pY)*.1;zm+=(tZm-zm)*.1;
-camera.position.x=Math.sin(rY)*Math.cos(rX)*zm+pX;camera.position.y=Math.sin(rX)*zm+pY;camera.position.z=Math.cos(rY)*Math.cos(rX)*zm;camera.lookAt(pX,pY,0);
-if(bbH)bbH.update();if(multiViewActive)renderMV();
-fc++;const now=Date.now();if(now-lft>=1000){document.getElementById('fps').textContent=fc+' FPS';fc=0;lft=now;}
-if(loaded)document.getElementById('co').textContent=`${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)}`;
-renderer.render(scene,camera);}animate();
+// ============================================================
+//  ANIMATE LOOP
+// ============================================================
+function animate(){
+  requestAnimationFrame(animate);
+  if(autoR&&loaded)tRY+=.003;
+  rX+=(tRX-rX)*.1;rY+=(tRY-rY)*.1;pX+=(tPX-pX)*.1;pY+=(tPY-pY)*.1;zm+=(tZm-zm)*.1;
+  camera.position.x=Math.sin(rY)*Math.cos(rX)*zm+pX;
+  camera.position.y=Math.sin(rX)*zm+pY;
+  camera.position.z=Math.cos(rY)*Math.cos(rX)*zm;
+  camera.lookAt(pX,pY,0);
+  if(bbH)bbH.update();
+  if(multiViewActive)renderMV();
+  fc++;const now=Date.now();
+  if(now-lft>=1000){document.getElementById('fps').textContent=fc+' FPS';fc=0;lft=now;}
+  if(loaded)document.getElementById('co').textContent=`${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)}`;
+  renderer.render(scene,camera);
+}
+animate();
 
-// ============================== UI ==============================
-function uMat(){mainGroup.traverse(c=>{if(c.isMesh){const pi=c.userData.partIndex;if(pi===selectedPartIdx){c.material.emissive.setHex(0xff6b35);c.material.emissiveIntensity=.3;}else{c.material.emissive.setHex(0x000000);}c.material.color.set(mCol);c.material.metalness=mMet;c.material.roughness=mRou;c.material.wireframe=wire;c.material.opacity=mOpa;c.material.transparent=mOpa<1;c.material.needsUpdate=true;}});}
+// ============================================================
+//  UI CONTROLS
+// ============================================================
+function uMatSlider(){}
 document.querySelectorAll('.sw').forEach(s=>s.addEventListener('click',()=>{document.querySelectorAll('.sw').forEach(x=>x.classList.remove('on'));s.classList.add('on');mCol=s.dataset.c;uMat();}));
 document.getElementById('mS').addEventListener('input',e=>{mMet=+e.target.value;document.getElementById('mV').textContent=mMet.toFixed(2);uMat();});
 document.getElementById('rS').addEventListener('input',e=>{mRou=+e.target.value;document.getElementById('rV').textContent=mRou.toFixed(2);uMat();});
 document.getElementById('oS').addEventListener('input',e=>{mOpa=+e.target.value;document.getElementById('oV').textContent=mOpa.toFixed(2);uMat();});
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',function(){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));document.querySelectorAll('.tabcon').forEach(x=>x.classList.remove('on'));this.classList.add('on');document.getElementById('tab-'+this.dataset.tab).classList.add('on');}));
+
 function sT(id,cb){document.getElementById(id).addEventListener('click',function(){this.classList.toggle('on');cb(this.classList.contains('on'));});}
-sT('tG',on=>gridH.visible=on);sT('tA',on=>axisH.visible=on);sT('tSh',on=>renderer.shadowMap.enabled=on);sT('tR',on=>autoR=on);
+sT('tG',on=>gridH.visible=on);
+sT('tA',on=>axisH.visible=on);
+sT('tSh',on=>{renderer.shadowMap.enabled=on;mainGroup.traverse(c=>{if(c.isMesh){c.castShadow=on;c.receiveShadow=on;}});});
+sT('tR',on=>autoR=on);
 sT('tBB',on=>{showBB=on;if(on)addBB();else if(bbH){scene.remove(bbH);bbH=null;}});
 sT('tEdge',on=>{showEdges=on;if(on)addEdges();else{edgeLines.forEach(e=>scene.remove(e));edgeLines=[];}});
+
 const isMob=window.innerWidth<=768;
 document.getElementById('panelBtn').addEventListener('click',()=>{const lp=document.getElementById('lp');if(isMob)lp.classList.toggle('show');else{lp.classList.toggle('hid');document.getElementById('vp').classList.toggle('exp');}setTimeout(hR,350);});
 if(!isMob)document.getElementById('lp').classList.remove('hid');
+
 document.getElementById('wireBtn').addEventListener('click',function(){wire=!wire;this.classList.toggle('on');uMat();});
-document.getElementById('capBtn').addEventListener('click',()=>{renderer.render(scene,camera);const a=document.createElement('a');a.download='engiview.png';a.href=renderer.domElement.toDataURL('image/png');a.click();});
+document.getElementById('capBtn').addEventListener('click',()=>{renderer.render(scene,camera);const a=document.createElement('a');a.download='mechprotools_capture.png';a.href=renderer.domElement.toDataURL('image/png');a.click();});
 document.getElementById('rstBtn').addEventListener('click',()=>{tRX=-.4;tRY=.6;tPX=0;tPY=loaded?mainGroup.position.y/2:0;tZm=6;});
 document.getElementById('zI').addEventListener('click',()=>tZm=Math.max(.3,tZm*.78));
 document.getElementById('zO').addEventListener('click',()=>tZm=Math.min(200,tZm*1.3));
 document.getElementById('fV').addEventListener('click',()=>{tRX=-.4;tRY=.6;tPX=0;tPY=loaded?mainGroup.position.y/2:0;tZm=6;});
 document.querySelectorAll('.vpb').forEach(b=>b.addEventListener('click',function(){const v=this.dataset.v;tPX=0;tPY=loaded?mainGroup.position.y/2:0;if(v==='front'){tRX=0;tRY=0;}else if(v==='back'){tRX=0;tRY=Math.PI;}else if(v==='top'){tRX=-Math.PI/2+.001;tRY=0;}else if(v==='bottom'){tRX=Math.PI/2-.001;tRY=0;}else if(v==='left'){tRX=0;tRY=Math.PI/2;}else if(v==='right'){tRX=0;tRY=-Math.PI/2;}else if(v==='iso'){tRX=-.5;tRY=.7;}}));
+
 function hR(){const w=vp.clientWidth,h=vp.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);}
 window.addEventListener('resize',hR);
 </script>
