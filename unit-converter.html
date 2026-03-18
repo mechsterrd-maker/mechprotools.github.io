@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engineering Unit Converter — Free Online | MechProTools</title>
+<meta name="description" content="Convert engineering units: length, pressure, temperature, force, torque, flow rate, density, area, volume. Quick and accurate conversions for mechanical engineers.">
+<meta name="keywords" content="engineering unit converter, pressure converter, bar to psi, mm to inches, torque converter, flow rate converter, temperature converter">
+<link rel="canonical" href="https://mechprotools.github.io/tools/unit-converter.html">
+<link rel="stylesheet" href="../shared.css">
+<style>.cat-btn{padding:8px 14px;font-size:12px;font-weight:600;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);border-radius:6px;cursor:pointer;transition:all .12s}.cat-btn:hover{border-color:var(--acc);color:var(--acc)}.cat-btn.on{background:var(--acc);color:#fff;border-color:var(--acc)}.swap-btn{width:36px;height:36px;border:1px solid var(--brd);background:var(--bg);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0}.swap-btn:hover{border-color:var(--acc);background:var(--acc2)}.swap-btn svg{width:16px;height:16px;color:var(--tx2)}</style>
+</head>
+<body>
+
+<nav class="nav"><div class="nav-inner">
+  <a href="../index.html" class="nav-logo"><div class="nav-logo-icon"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 8h12M8 2v12"/></svg></div><span class="mono">MECHPRO<span style="color:var(--tx2);font-weight:400">TOOLS</span></span></a>
+  <div class="nav-links"><a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a><a href="metal-weight.html">Metal Weight</a><a href="taper-calc.html">Taper</a><a href="drill-tap.html">Drill &amp; Tap</a><a href="gdt.html">GD&amp;T</a><a href="unit-converter.html">Units</a><a href="../blog.html">Blog</a></div>
+  <button class="nav-burger" id="navBurger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+</div></nav>
+<div class="mobile-menu" id="mobileMenu"><a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a><a href="metal-weight.html">Metal Weight Calculator</a><a href="taper-calc.html">Taper Angle Calculator</a><a href="drill-tap.html">Drill &amp; Tap Sizes</a><a href="gdt.html">GD&amp;T Reference</a><a href="unit-converter.html">Unit Converter</a><a href="../blog.html">Blog</a><a href="../about.html">About</a></div>
+
+<section class="hero" style="padding:40px 20px 24px">
+  <h1>Engineering <span>Unit Converter</span></h1>
+  <p>Quick, accurate conversions for all units mechanical engineers use daily.</p>
+</section>
+
+<section class="section section-sm">
+<div class="calc-layout">
+<div class="calc-main">
+
+  <!-- Category selector -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px" id="catBtns"></div>
+
+  <!-- Converter -->
+  <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+    <div class="calc-field" style="flex:2;min-width:120px">
+      <label>From</label>
+      <input type="number" id="fromVal" value="1" inputmode="decimal" oninput="convert()">
+    </div>
+    <div class="calc-field" style="flex:2;min-width:120px">
+      <label>Unit</label>
+      <select id="fromUnit" onchange="convert()"></select>
+    </div>
+    <button class="swap-btn" onclick="swapUnits()" title="Swap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16l-4-4 4-4"/><path d="M17 8l4 4-4 4"/><line x1="3" y1="12" x2="21" y2="12"/></svg></button>
+    <div class="calc-field" style="flex:2;min-width:120px">
+      <label>To</label>
+      <select id="toUnit" onchange="convert()"></select>
+    </div>
+  </div>
+
+  <div class="calc-result" id="convResult" style="margin-top:16px">
+    <div class="label">Result</div>
+    <div class="value" id="convVal">—</div>
+    <div class="sub" id="convFormula">—</div>
+  </div>
+
+  <!-- Quick reference table -->
+  <h3 style="margin-top:24px;font-size:15px;font-weight:600">Quick reference</h3>
+  <table class="data-table" id="refTable"><thead><tr><th>From</th><th>To</th><th>Factor</th></tr></thead><tbody></tbody></table>
+
+  <div class="ad-inline">Ad space — Google AdSense</div>
+
+  <div class="seo-text" style="max-width:100%;margin-top:20px">
+    <h2>Engineering unit conversions</h2>
+    <p>This converter covers all common units used in mechanical engineering, plant design, and manufacturing. Whether you need to convert pressure from bar to psi, length from millimeters to inches, or temperature between Celsius and Fahrenheit, this tool gives you instant, accurate results.</p>
+    <h3>Common conversions</h3>
+    <p>1 inch = 25.4 mm · 1 bar = 14.5038 psi · 1 Nm = 0.7376 ft·lbf · 1 kg/cm² = 14.2233 psi · 1 m³/hr = 4.403 GPM (US)</p>
+  </div>
+</div>
+<div class="calc-sidebar">
+  <div class="ad-sidebar">Ad space (300×250)</div>
+  <div style="background:var(--bg2);border-radius:8px;padding:16px">
+    <h4 style="font-size:13px;font-weight:600;margin-bottom:8px">More tools</h4>
+    <a href="../viewer.html" style="display:block;font-size:12px;padding:4px 0">3D Model Viewer →</a>
+    <a href="pipe-weight.html" style="display:block;font-size:12px;padding:4px 0">Pipe Weight Calculator →</a>
+  </div>
+  <div class="ad-sidebar">Ad space (300×250)</div>
+</div>
+</div>
+</section>
+
+<footer class="footer"><div class="footer-inner"><div><h4>MechProTools</h4><p>Free engineering tools.</p></div><div><h4>Tools</h4><a href="../viewer.html">3D Viewer</a><a href="metal-weight.html">Metal Weight</a><a href="unit-converter.html">Unit Converter</a></div><div><h4>Formats</h4><a href="../viewer.html">STEP Viewer</a><a href="../viewer.html">IGES Viewer</a></div><div><h4>Resources</h4><a href="../blog.html">Blog</a><a href="../about.html">About</a></div></div><div class="footer-bottom"><span>© 2026 MechProTools</span><span>Free forever</span></div></footer>
+
+<script src="../shared.js"></script>
+<script>
+const CATS={
+  Length:{units:{mm:1,cm:10,m:1000,km:1e6,in:25.4,ft:304.8,yd:914.4,mi:1609344,μm:0.001,mil:0.0254},default:['mm','in']},
+  Pressure:{units:{Pa:1,kPa:1000,MPa:1e6,bar:1e5,mbar:100,psi:6894.76,atm:101325,'kg/cm²':98066.5,mmHg:133.322,inHg:3386.39,torr:133.322},default:['bar','psi']},
+  Temperature:{units:{},special:true,default:['°C','°F']},
+  Force:{units:{N:1,kN:1000,MN:1e6,kgf:9.80665,lbf:4.44822,dyn:1e-5,ozf:0.278014},default:['N','kgf']},
+  Torque:{units:{'N·m':1,'kN·m':1000,'kgf·m':9.80665,'kgf·cm':0.0980665,'ft·lbf':1.35582,'in·lbf':0.112985,'oz·in':0.00706155},default:['N·m','ft·lbf']},
+  'Flow Rate':{units:{'m³/h':1,'m³/s':3600,'L/min':0.06,'L/s':3.6,'GPM(US)':0.227125,'GPM(UK)':0.272765,'CFM':1.699},default:['m³/h','GPM(US)']},
+  Density:{units:{'kg/m³':1,'g/cm³':1000,'lb/ft³':16.0185,'lb/in³':27679.9,'kg/L':1000},default:['kg/m³','g/cm³']},
+  Area:{units:{'mm²':1,'cm²':100,'m²':1e6,'in²':645.16,'ft²':92903,'yd²':836127},default:['mm²','in²']},
+  Volume:{units:{'mm³':1,'cm³':1000,'m³':1e9,L:1e6,mL:1000,'in³':16387.1,'ft³':2.832e7,'gal(US)':3785410,'gal(UK)':4546090},default:['cm³','in³']},
+  Mass:{units:{mg:0.001,g:1,kg:1000,tonne:1e6,lb:453.592,oz:28.3495,grain:0.0648,slug:14593.9},default:['kg','lb']},
+  Speed:{units:{'m/s':1,'km/h':0.277778,'ft/s':0.3048,'mph':0.44704,knot:0.514444,'ft/min':0.00508},default:['m/s','ft/s']},
+  Power:{units:{W:1,kW:1000,MW:1e6,HP:745.7,BTU_h:0.29307,kcal_h:1.163,'ft·lbf/s':1.35582},default:['kW','HP']}
+};
+
+let curCat='Length';
+
+// Build category buttons
+const catCon=document.getElementById('catBtns');
+Object.keys(CATS).forEach(c=>{
+  const b=document.createElement('button');b.className='cat-btn'+(c===curCat?' on':'');
+  b.textContent=c;b.onclick=()=>{curCat=c;document.querySelectorAll('.cat-btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');buildUnits();convert();};
+  catCon.appendChild(b);
+});
+
+function buildUnits(){
+  const cat=CATS[curCat];const f=document.getElementById('fromUnit'),t=document.getElementById('toUnit');
+  f.innerHTML='';t.innerHTML='';
+  if(cat.special){// Temperature
+    ['°C','°F','K','°R'].forEach(u=>{f.add(new Option(u,u));t.add(new Option(u,u));});
+  }else{
+    Object.keys(cat.units).forEach(u=>{f.add(new Option(u,u));t.add(new Option(u,u));});
+  }
+  if(cat.default){f.value=cat.default[0];t.value=cat.default[1];}
+  buildRefTable();
+}
+
+function convert(){
+  const val=+document.getElementById('fromVal').value;
+  const fu=document.getElementById('fromUnit').value;
+  const tu=document.getElementById('toUnit').value;
+  const cat=CATS[curCat];let result;
+
+  if(cat.special){// Temperature
+    let celsius;
+    if(fu==='°C')celsius=val;else if(fu==='°F')celsius=(val-32)*5/9;
+    else if(fu==='K')celsius=val-273.15;else celsius=(val-491.67)*5/9;
+    if(tu==='°C')result=celsius;else if(tu==='°F')result=celsius*9/5+32;
+    else if(tu==='K')result=celsius+273.15;else result=(celsius+273.15)*9/5;
+  }else{
+    const base=val*cat.units[fu];result=base/cat.units[tu];
+  }
+
+  const fmt=Math.abs(result)<0.001||Math.abs(result)>1e8?result.toExponential(6):
+    Math.abs(result)<1?result.toPrecision(6):result.toFixed(6).replace(/\.?0+$/,'');
+
+  document.getElementById('convVal').textContent=fmt+' '+tu;
+  document.getElementById('convFormula').textContent=val+' '+fu+' = '+fmt+' '+tu;
+}
+
+function swapUnits(){
+  const f=document.getElementById('fromUnit'),t=document.getElementById('toUnit');
+  const fv=f.value;f.value=t.value;t.value=fv;convert();
+}
+
+function buildRefTable(){
+  const cat=CATS[curCat];const tb=document.getElementById('refTable').querySelector('tbody');tb.innerHTML='';
+  if(cat.special){
+    tb.innerHTML='<tr><td>0 °C</td><td>32 °F</td><td>—</td></tr><tr><td>100 °C</td><td>212 °F</td><td>—</td></tr><tr><td>0 °C</td><td>273.15 K</td><td>—</td></tr>';
+    return;
+  }
+  const units=Object.keys(cat.units);
+  const base=units[0];
+  units.slice(1).forEach(u=>{
+    const factor=cat.units[u]/cat.units[base];
+    const invFactor=cat.units[base]/cat.units[u];
+    tb.innerHTML+=`<tr><td>1 ${u}</td><td>${factor<0.001||factor>1e6?factor.toExponential(4):factor.toFixed(4)} ${base}</td><td class="mono">${invFactor<0.001||invFactor>1e6?invFactor.toExponential(4):invFactor.toFixed(6).replace(/0+$/,'').replace(/\.$/,'')} ${u}/${base}</td></tr>`;
+  });
+}
+
+buildUnits();convert();
+</script>
+</body>
+</html>

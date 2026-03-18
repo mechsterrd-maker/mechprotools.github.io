@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engineering Blog — CAD Tips, Material Science, Piping | MechProTools</title>
+<meta name="description" content="Practical engineering articles: STEP vs IGES comparison, stainless steel grades, pipe schedule charts, CAD tips, material properties, and more.">
+<link rel="canonical" href="https://mechprotools.github.io/blog.html">
+<link rel="stylesheet" href="shared.css">
+<style>.blog-hero{background:var(--bg2);padding:24px;border-radius:12px;display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;border:1px solid var(--brd2)}.blog-hero-text h2{font-size:22px;font-weight:700;margin-bottom:8px}.blog-hero-text p{font-size:13px;color:var(--tx2);line-height:1.6;margin-bottom:12px}.blog-hero-text .tag{font-size:10px;font-weight:600;color:var(--acc);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}.blog-hero-img{background:var(--bg3);border-radius:8px;display:flex;align-items:center;justify-content:center;min-height:200px}.blog-hero-img svg{width:64px;height:64px;color:var(--txd);opacity:.3}@media(max-width:768px){.blog-hero{grid-template-columns:1fr}.blog-hero-img{min-height:120px}}</style>
+</head>
+<body>
+
+<nav class="nav"><div class="nav-inner">
+  <a href="index.html" class="nav-logo"><div class="nav-logo-icon"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 8h12M8 2v12"/></svg></div><span class="mono">MECHPRO<span style="color:var(--tx2);font-weight:400">TOOLS</span></span></a>
+  <div class="nav-links"><a href="index.html">Home</a><a href="viewer.html">3D Viewer</a><a href="tools/metal-weight.html">Metal Weight</a><a href="tools/taper-calc.html">Taper</a><a href="tools/drill-tap.html">Drill &amp; Tap</a><a href="tools/gdt.html">GD&amp;T</a><a href="tools/unit-converter.html">Units</a><a href="blog.html">Blog</a></div>
+  <button class="nav-burger" id="navBurger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+</div></nav>
+<div class="mobile-menu" id="mobileMenu"><a href="index.html">Home</a><a href="viewer.html">3D Viewer</a><a href="tools/metal-weight.html">Metal Weight Calculator</a><a href="tools/taper-calc.html">Taper Angle Calculator</a><a href="tools/drill-tap.html">Drill &amp; Tap Sizes</a><a href="tools/gdt.html">GD&amp;T Reference</a><a href="tools/unit-converter.html">Unit Converter</a><a href="blog.html">Blog</a><a href="about.html">About</a></div>
+
+<section class="hero" style="padding:40px 20px 24px">
+  <h1>Engineering <span>Knowledge Base</span></h1>
+  <p>Practical articles for mechanical and plant engineers. CAD tips, material science, piping design, and more.</p>
+</section>
+
+<section class="section section-sm">
+
+  <!-- Featured -->
+  <div class="blog-hero">
+    <div class="blog-hero-text">
+      <div class="tag">Featured · CAD Formats</div>
+      <h2>STEP vs IGES: Which CAD format should you use?</h2>
+      <p>A practical comparison of the two most common CAD exchange formats. When to use each, compatibility with different software, and common pitfalls that corrupt your geometry during export.</p>
+      <a href="#" class="btn-lg btn-outline" style="font-size:13px;padding:8px 20px">Read Article</a>
+    </div>
+    <div class="blog-hero-img"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="8" y="8" width="32" height="32" rx="4"/><path d="M8 24h32M24 8v32M14 14l20 20M34 14l-20 20"/></svg></div>
+  </div>
+
+  <div class="ad-banner">Ad space — Google AdSense</div>
+
+  <h2 style="font-size:18px;font-weight:600;margin-bottom:16px">All articles</h2>
+  <div class="blog-grid">
+    <a href="#" class="blog-card"><div class="blog-thumb"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="24" cy="24" r="16"/><circle cx="24" cy="24" r="6"/><line x1="24" y1="4" x2="24" y2="8"/><line x1="24" y1="40" x2="24" y2="44"/></svg></div><div class="blog-body"><div class="tag">Material Science</div><h3>SS304 vs SS316: Choosing the right stainless steel</h3><p>Corrosion resistance, cost, weldability and where each grade performs best in chemical plants, food processing and marine applications.</p></div></a>
+    <a href="#" class="blog-card"><div class="blog-thumb"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 36V12h24v24"/><path d="M18 36V20"/><path d="M24 36V16"/><path d="M30 36V24"/></svg></div><div class="blog-body"><div class="tag">Piping</div><h3>Pipe schedule chart: Complete reference guide</h3><p>Wall thickness, weight per meter, and OD for pipes from 1/2" to 24" in schedules 5 through XXS. Print-friendly chart included.</p></div></a>
+    <a href="#" class="blog-card"><div class="blog-thumb"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="12" y="12" width="24" height="24" rx="2"/><path d="M12 20h24"/><path d="M20 20v16"/></svg></div><div class="blog-body"><div class="tag">CAD Tips</div><h3>How to export STEP files from SolidWorks, CATIA, and Fusion 360</h3><p>Step-by-step guide with screenshots. Common export settings that affect quality and file size.</p></div></a>
+    <a href="#" class="blog-card"><div class="blog-thumb"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 34l10-20 10 20"/><line x1="18" y1="28" x2="30" y2="28"/></svg></div><div class="blog-body"><div class="tag">Material Science</div><h3>Carbon Steel vs Alloy Steel: Properties and applications</h3><p>Grade comparison, mechanical properties, heat treatment, and which jobs call for which grade. Includes ASTM cross-reference.</p></div></a>
+    <a href="#" class="blog-card"><div class="blog-thumb"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="24" cy="24" r="14"/><path d="M24 14v10l7 7"/></svg></div><div class="blog-body"><div class="tag">Plant Engineering</div><h3>Flange bolt torque values: ASME standards quick reference</h3><p>Bolt torque tables for 150# through 2500# flanges. Stud bolt sizes, gasket factors, and proper tightening sequence.</p></div></a>
+    <a href="#" class="blog-card"><div class="blog-thumb"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="10" y="18" width="28" height="16" rx="2"/><path d="M16 18v-4a8 8 0 0116 0v4"/></svg></div><div class="blog-body"><div class="tag">3D Printing</div><h3>Converting STEP to STL: Best practices for 3D printing</h3><p>Mesh resolution, tolerance settings, and how to avoid common errors when converting from BREP to mesh formats.</p></div></a>
+  </div>
+
+  <div class="ad-inline">Ad space — Google AdSense</div>
+
+</section>
+
+<footer class="footer"><div class="footer-inner"><div><h4>MechProTools</h4><p>Free engineering tools and knowledge.</p></div><div><h4>Tools</h4><a href="viewer.html">3D Viewer</a><a href="tools/metal-weight.html">Metal Weight</a><a href="tools/unit-converter.html">Unit Converter</a></div><div><h4>Formats</h4><a href="viewer.html">STEP Viewer</a><a href="viewer.html">IGES Viewer</a></div><div><h4>Resources</h4><a href="blog.html">Blog</a><a href="about.html">About</a></div></div><div class="footer-bottom"><span>© 2026 MechProTools</span><span>Free forever</span></div></footer>
+<script src="shared.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About MechProTools — Free 3D CAD Viewer</title>
+<meta name="description" content="MechProTools is a free online 3D model viewer built by engineers for engineers. Open STEP, IGES, STL files in your browser.">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<nav class="nav"><div class="nav-inner">
+  <a href="index.html" class="nav-logo"><div class="nav-logo-icon"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 8h12M8 2v12"/></svg></div><span class="mono">MECHPRO<span style="color:var(--tx2);font-weight:400">TOOLS</span></span></a>
+  <div class="nav-links"><a href="index.html">Home</a><a href="viewer.html">3D Viewer</a><a href="tools/metal-weight.html">Metal Weight</a><a href="tools/taper-calc.html">Taper</a><a href="tools/drill-tap.html">Drill &amp; Tap</a><a href="tools/gdt.html">GD&amp;T</a><a href="tools/unit-converter.html">Units</a><a href="blog.html">Blog</a></div>
+  <button class="nav-burger" id="navBurger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+</div></nav>
+<div class="mobile-menu" id="mobileMenu"><a href="index.html">Home</a><a href="viewer.html">3D Viewer</a><a href="tools/metal-weight.html">Metal Weight Calculator</a><a href="tools/taper-calc.html">Taper Angle Calculator</a><a href="tools/drill-tap.html">Drill &amp; Tap Sizes</a><a href="tools/gdt.html">GD&amp;T Reference</a><a href="tools/unit-converter.html">Unit Converter</a><a href="blog.html">Blog</a><a href="about.html">About</a></div>
+
+<section class="section" style="max-width:720px">
+  <h1 style="font-size:32px;font-weight:700;margin-bottom:16px">About MechProTools</h1>
+  <p style="font-size:16px;color:var(--tx2);line-height:1.7;margin-bottom:24px">MechProTools is a free, browser-based 3D model viewer and engineering toolkit built by a mechanical engineer with 14+ years of plant engineering experience.</p>
+
+  <h2 style="font-size:20px;font-weight:600;margin:24px 0 8px">Why we built this</h2>
+  <p style="font-size:14px;color:var(--tx2);line-height:1.7;margin-bottom:12px">Every day, engineers need to quickly view a STEP file from a supplier, check a dimension on a 3D model, or calculate the weight of a pipe run. The existing options are either expensive desktop software or clunky web tools that can't handle real CAD formats.</p>
+  <p style="font-size:14px;color:var(--tx2);line-height:1.7;margin-bottom:12px">MechProTools solves this. Open any STEP, IGES, or STL file directly in your browser — on your phone, tablet, or desktop. No installation, no registration, no cost.</p>
+
+  <h2 style="font-size:20px;font-weight:600;margin:24px 0 8px">Technology</h2>
+  <p style="font-size:14px;color:var(--tx2);line-height:1.7;margin-bottom:12px">Built with OpenCascade Technology (OCCT) compiled to WebAssembly via occt-import-js, rendered with Three.js. All file processing happens locally in your browser — your CAD files never leave your device.</p>
+
+  <h2 style="font-size:20px;font-weight:600;margin:24px 0 8px">Contact</h2>
+  <p style="font-size:14px;color:var(--tx2);line-height:1.7">Have feedback, found a bug, or want to collaborate? Reach out at <a href="mailto:contact@mechprotools.com">contact@mechprotools.com</a></p>
+
+  <div style="margin-top:32px"><a href="viewer.html" class="btn-lg btn-primary">Open 3D Viewer</a></div>
+</section>
+
+<footer class="footer"><div class="footer-inner"><div><h4>MechProTools</h4><p>Free engineering tools.</p></div><div><h4>Tools</h4><a href="viewer.html">3D Viewer</a><a href="tools/metal-weight.html">Metal Weight</a><a href="tools/unit-converter.html">Unit Converter</a></div><div><h4>Formats</h4><a href="viewer.html">STEP Viewer</a><a href="viewer.html">IGES Viewer</a></div><div><h4>Resources</h4><a href="blog.html">Blog</a><a href="about.html">About</a></div></div><div class="footer-bottom"><span>© 2026 MechProTools</span><span>Free forever</span></div></footer>
+<script src="shared.js"></script>
+</body>
+</html>

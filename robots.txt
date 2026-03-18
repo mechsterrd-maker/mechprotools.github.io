@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://engiview-3d-viewer.netlify.app/sitemap.xml

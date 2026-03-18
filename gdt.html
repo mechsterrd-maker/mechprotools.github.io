@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GD&T Reference Guide & Calculators — Tolerances, Surface Finish | MechProTools</title>
+<meta name="description" content="Complete GD&T reference: all 14 geometric tolerance symbols explained, true position calculator, surface finish Ra/Rz chart, IT tolerance grades, fit calculator.">
+<meta name="keywords" content="GD&T symbols, geometric tolerancing, true position calculator, surface finish chart, Ra Rz conversion, IT tolerance grades, position tolerance, flatness, perpendicularity">
+<link rel="canonical" href="https://mechprotools.github.io/tools/gdt.html">
+<link rel="stylesheet" href="../shared.css">
+<style>
+.gdt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:12px 0}
+.gdt-card{border:1px solid var(--brd2);border-radius:8px;padding:12px;display:flex;gap:10px;align-items:start;transition:border-color .15s}
+.gdt-card:hover{border-color:var(--acc)}
+.gdt-sym{width:36px;height:36px;border:1.5px solid var(--tx);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-weight:700}
+.gdt-info h4{font-size:12px;font-weight:600;margin-bottom:2px}
+.gdt-info p{font-size:10px;color:var(--txd);line-height:1.4}
+.gdt-cat{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--acc);margin:16px 0 6px;padding:4px 0;border-bottom:1px solid var(--brd2)}
+.sf-row{display:flex;align-items:center;gap:2px;padding:4px 8px;font-size:11px}
+.sf-bar{height:14px;border-radius:2px;transition:width .3s}
+.tab-bar{display:flex;gap:4px;margin-bottom:16px;border-bottom:2px solid var(--brd2);padding-bottom:4px}
+.tab-item{padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;color:var(--txd);border-radius:6px 6px 0 0;transition:all .15s}
+.tab-item:hover{color:var(--acc)}
+.tab-item.on{color:var(--acc);background:var(--acc-lt)}
+.tab-panel{display:none}.tab-panel.on{display:block}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="nav-inner"><a href="../index.html" class="nav-logo"><div class="nav-logo-icon"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 8h12M8 2v12"/></svg></div><span class="mono">MECHPRO<span style="color:var(--tx2);font-weight:400">TOOLS</span></span></a><div class="nav-links"><a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a><a href="metal-weight.html">Metal Weight</a><a href="taper-calc.html">Taper</a><a href="drill-tap.html">Drill &amp; Tap</a><a href="gdt.html">GD&amp;T</a><a href="unit-converter.html">Units</a><a href="../blog.html">Blog</a></div><button class="nav-burger" id="navBurger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div></nav>
+<div class="mobile-menu" id="mobileMenu"><a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a><a href="metal-weight.html">Metal Weight Calculator</a><a href="taper-calc.html">Taper Angle Calculator</a><a href="drill-tap.html">Drill &amp; Tap Sizes</a><a href="gdt.html">GD&amp;T Reference</a><a href="unit-converter.html">Unit Converter</a><a href="../blog.html">Blog</a><a href="../about.html">About</a></div>
+
+<section class="hero" style="padding:36px 20px 20px"><h1>GD&T Reference <span>& Calculators</span></h1><p>Complete guide to Geometric Dimensioning & Tolerancing — all 14 symbols, tolerance calculators, surface finish charts.</p></section>
+
+<section class="section section-sm">
+<div class="calc-layout">
+<div class="calc-main">
+
+<div class="tab-bar">
+<div class="tab-item on" onclick="showTab('symbols')">GD&T Symbols</div>
+<div class="tab-item" onclick="showTab('position')">Position Calc</div>
+<div class="tab-item" onclick="showTab('surface')">Surface Finish</div>
+<div class="tab-item" onclick="showTab('tolerance')">IT Grades</div>
+</div>
+
+<!-- TAB: GD&T SYMBOLS -->
+<div class="tab-panel on" id="tab-symbols">
+<div class="gdt-cat">Form tolerances (no datum required)</div>
+<div class="gdt-grid">
+<div class="gdt-card"><div class="gdt-sym">⏥</div><div class="gdt-info"><h4>Flatness</h4><p>Surface must lie between two parallel planes separated by the tolerance value. Controls waviness and bowing.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">⌭</div><div class="gdt-info"><h4>Straightness</h4><p>Line element or axis must lie within a tolerance zone. Applied to surface lines or feature axis.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">○</div><div class="gdt-info"><h4>Circularity (Roundness)</h4><p>Each circular cross-section must lie between two concentric circles. Controls ovality and lobing.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">⌓</div><div class="gdt-info"><h4>Cylindricity</h4><p>Entire surface must lie between two coaxial cylinders. Combines circularity, straightness, and taper.</p></div></div>
+</div>
+
+<div class="gdt-cat">Orientation tolerances (datum required)</div>
+<div class="gdt-grid">
+<div class="gdt-card"><div class="gdt-sym">⊥</div><div class="gdt-info"><h4>Perpendicularity</h4><p>Feature must be within tolerance zone perpendicular to datum. Controls 90° relationships.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">∠</div><div class="gdt-info"><h4>Angularity</h4><p>Feature at a specified angle to datum must lie within tolerance zone at that angle.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">∥</div><div class="gdt-info"><h4>Parallelism</h4><p>Feature must lie between two planes/lines parallel to datum within tolerance.</p></div></div>
+</div>
+
+<div class="gdt-cat">Location tolerances (datum required)</div>
+<div class="gdt-grid">
+<div class="gdt-card"><div class="gdt-sym">⊕</div><div class="gdt-info"><h4>Position</h4><p>Feature's actual position must fall within cylindrical/parallel tolerance zone at true position. Most commonly used GD&T symbol.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">◎</div><div class="gdt-info"><h4>Concentricity</h4><p>Median points of all cross-sections must lie within cylindrical tolerance zone coaxial with datum axis.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">≡</div><div class="gdt-info"><h4>Symmetry</h4><p>Median points of opposed features must lie within tolerance zone symmetrical about datum plane.</p></div></div>
+</div>
+
+<div class="gdt-cat">Runout tolerances (datum required)</div>
+<div class="gdt-grid">
+<div class="gdt-card"><div class="gdt-sym">↗</div><div class="gdt-info"><h4>Circular Runout</h4><p>Each circular element must not vary more than tolerance during one full rotation about datum axis.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">↗↗</div><div class="gdt-info"><h4>Total Runout</h4><p>Entire surface must not vary more than tolerance during full rotation. Controls all surface errors simultaneously.</p></div></div>
+</div>
+
+<div class="gdt-cat">Profile tolerances</div>
+<div class="gdt-grid">
+<div class="gdt-card"><div class="gdt-sym">⌒</div><div class="gdt-info"><h4>Profile of a Line</h4><p>Each line element of a surface must lie within 2D tolerance zone. Applied cross-section by cross-section.</p></div></div>
+<div class="gdt-card"><div class="gdt-sym">⌓</div><div class="gdt-info"><h4>Profile of a Surface</h4><p>Entire surface must lie within 3D tolerance zone. Most versatile GD&T control — can replace size, form, orientation, location.</p></div></div>
+</div>
+</div>
+
+<!-- TAB: TRUE POSITION CALCULATOR -->
+<div class="tab-panel" id="tab-position">
+<h3 style="font-size:16px;font-weight:600;margin-bottom:12px">True position calculator</h3>
+<p style="font-size:12px;color:var(--tx2);margin-bottom:16px">Calculate actual position deviation from nominal. Formula: TP = 2 × √(ΔX² + ΔY²)</p>
+
+<div class="calc-row">
+<div class="calc-field"><label>Nominal X</label><input type="number" id="nomX" value="50" inputmode="decimal"></div>
+<div class="calc-field"><label>Nominal Y</label><input type="number" id="nomY" value="25" inputmode="decimal"></div>
+</div>
+<div class="calc-row">
+<div class="calc-field"><label>Actual X</label><input type="number" id="actX" value="50.08" inputmode="decimal"></div>
+<div class="calc-field"><label>Actual Y</label><input type="number" id="actY" value="25.05" inputmode="decimal"></div>
+</div>
+<div class="calc-row">
+<div class="calc-field"><label>Position Tolerance (dia)</label><input type="number" id="posTol" value="0.25" inputmode="decimal"></div>
+<div class="calc-field"><label>MMC Bonus (optional)</label><input type="number" id="mmcBonus" value="0" inputmode="decimal"></div>
+</div>
+<button class="calc-btn" onclick="calcPosition()" style="width:100%;margin-top:8px">Calculate Position</button>
+<div class="calc-result" id="posResult" style="display:none;margin-top:12px">
+<div class="label" id="posLabel">True position</div>
+<div class="value" id="posVal">—</div>
+<div class="sub" id="posSub">—</div>
+</div>
+<table class="data-table" id="posTable" style="display:none"><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody id="posTBody"></tbody></table>
+
+<h3 style="font-size:14px;font-weight:600;margin-top:20px">Bonus tolerance with MMC</h3>
+<p style="font-size:12px;color:var(--tx2);line-height:1.6">When position tolerance is applied at MMC (Maximum Material Condition), bonus tolerance equals the departure from MMC. If a hole's MMC is ⌀10.0 and actual size is ⌀10.15, bonus = 0.15. Total allowed position tolerance = stated tolerance + bonus.</p>
+</div>
+
+<!-- TAB: SURFACE FINISH -->
+<div class="tab-panel" id="tab-surface">
+<h3 style="font-size:16px;font-weight:600;margin-bottom:12px">Surface finish reference chart</h3>
+<p style="font-size:12px;color:var(--tx2);margin-bottom:12px">Ra (arithmetic average roughness) values with typical manufacturing processes.</p>
+
+<table class="data-table">
+<thead><tr><th>Ra (μm)</th><th>Ra (μin)</th><th>N Grade</th><th>Rz approx (μm)</th><th>Typical Process</th></tr></thead>
+<tbody>
+<tr><td>50</td><td>2000</td><td>N12</td><td>200</td><td>Rough sawing, flame cutting</td></tr>
+<tr><td>25</td><td>1000</td><td>N11</td><td>100</td><td>Rough turning, milling</td></tr>
+<tr><td>12.5</td><td>500</td><td>N10</td><td>50</td><td>Rough machining</td></tr>
+<tr><td>6.3</td><td>250</td><td>N9</td><td>25</td><td>Medium turning, milling</td></tr>
+<tr><td>3.2</td><td>125</td><td>N8</td><td>12.5</td><td>Normal machining, finish turning</td></tr>
+<tr><td>1.6</td><td>63</td><td>N7</td><td>6.3</td><td>Fine turning, grinding</td></tr>
+<tr><td>0.8</td><td>32</td><td>N6</td><td>3.2</td><td>Fine grinding, honing</td></tr>
+<tr><td>0.4</td><td>16</td><td>N5</td><td>1.6</td><td>Superfinishing, lapping</td></tr>
+<tr><td>0.2</td><td>8</td><td>N4</td><td>0.8</td><td>Polishing, lapping</td></tr>
+<tr><td>0.1</td><td>4</td><td>N3</td><td>0.4</td><td>Mirror polishing</td></tr>
+<tr><td>0.05</td><td>2</td><td>N2</td><td>0.2</td><td>Superpolishing</td></tr>
+<tr><td>0.025</td><td>1</td><td>N1</td><td>0.1</td><td>Optical finishing</td></tr>
+</tbody>
+</table>
+
+<h3 style="font-size:14px;font-weight:600;margin-top:20px">Ra to Rz conversion</h3>
+<div class="calc-row" style="margin-top:8px">
+<div class="calc-field"><label>Ra (μm)</label><input type="number" id="raIn" value="3.2" inputmode="decimal" onchange="convRaRz()"></div>
+<div class="calc-field"><label>Rz (approx μm)</label><input type="number" id="rzOut" value="" readonly style="background:var(--bg2)"></div>
+</div>
+<p style="font-size:10px;color:var(--txd);margin-top:4px">Approximate: Rz ≈ 4×Ra (general machining) to 7×Ra (ground surfaces)</p>
+
+<h3 style="font-size:14px;font-weight:600;margin-top:16px">Surface finish symbols</h3>
+<table class="data-table">
+<thead><tr><th>Symbol</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td style="font-size:18px">√</td><td>Basic surface texture symbol — machining required</td></tr>
+<tr><td style="font-size:18px">√̄</td><td>Material removal required (must be machined)</td></tr>
+<tr><td style="font-size:18px">√○</td><td>Material removal prohibited (as-cast, as-forged)</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- TAB: IT TOLERANCE GRADES -->
+<div class="tab-panel" id="tab-tolerance">
+<h3 style="font-size:16px;font-weight:600;margin-bottom:12px">ISO tolerance grades (IT)</h3>
+<p style="font-size:12px;color:var(--tx2);margin-bottom:12px">Tolerance values in mm for standard IT grades per ISO 286. Select a nominal size range to see values.</p>
+
+<div class="calc-row">
+<div class="calc-field"><label>Nominal size range (mm)</label>
+<select id="itSize" onchange="showIT()">
+<option value="0">Over 0 to 3</option><option value="1" selected>Over 3 to 6</option><option value="2">Over 6 to 10</option><option value="3">Over 10 to 18</option><option value="4">Over 18 to 30</option><option value="5">Over 30 to 50</option><option value="6">Over 50 to 80</option><option value="7">Over 80 to 120</option><option value="8">Over 120 to 180</option><option value="9">Over 180 to 250</option><option value="10">Over 250 to 315</option><option value="11">Over 315 to 400</option>
+</select></div>
+</div>
+<table class="data-table"><thead><tr><th>IT Grade</th><th>Tolerance (mm)</th><th>Tolerance (μm)</th><th>Typical Use</th></tr></thead>
+<tbody id="itTable"></tbody>
+</table>
+
+<h3 style="font-size:14px;font-weight:600;margin-top:20px">Common fit types</h3>
+<table class="data-table">
+<thead><tr><th>Fit Type</th><th>Hole</th><th>Shaft</th><th>Application</th></tr></thead>
+<tbody>
+<tr><td>Clearance (loose)</td><td>H11</td><td>c11</td><td>Covers, loose bushings</td></tr>
+<tr><td>Clearance (free)</td><td>H9</td><td>d9</td><td>Bearings, journals</td></tr>
+<tr><td>Clearance (close)</td><td>H8</td><td>f7</td><td>Sliding fits, spigots</td></tr>
+<tr><td>Transition (sliding)</td><td>H7</td><td>g6</td><td>Location fits, pistons</td></tr>
+<tr><td>Transition</td><td>H7</td><td>k6</td><td>Keyed shafts, pulleys</td></tr>
+<tr><td>Interference (light)</td><td>H7</td><td>p6</td><td>Press fit, dowel pins</td></tr>
+<tr><td>Interference (heavy)</td><td>H7</td><td>s6</td><td>Permanent assembly</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="ad-inline">Ad space — Google AdSense</div>
+</div>
+<div class="calc-sidebar"><div class="ad-sidebar">Ad space (300×250)</div><div style="background:var(--bg2);border-radius:8px;padding:16px"><h4 style="font-size:13px;font-weight:600;margin-bottom:8px">More tools</h4><a href="metal-weight.html" style="display:block;font-size:12px;padding:4px 0">Metal Weight →</a><a href="taper-calc.html" style="display:block;font-size:12px;padding:4px 0">Taper Calculator →</a><a href="drill-tap.html" style="display:block;font-size:12px;padding:4px 0">Drill & Tap →</a><a href="pipe-weight.html" style="display:block;font-size:12px;padding:4px 0">Metal Weight →</a></div><div class="ad-sidebar">Ad space (300×250)</div></div>
+</div>
+</section>
+
+<footer class="footer"><div class="footer-inner"><div><h4>MechProTools</h4><p>Free engineering tools.</p></div><div><h4>Calculators</h4><a href="metal-weight.html">Metal Weight</a><a href="taper-calc.html">Taper Calc</a><a href="drill-tap.html">Drill & Tap</a><a href="metal-weight.html">Metal Weight</a></div><div><h4>References</h4><a href="gdt.html">GD&T Guide</a><a href="unit-converter.html">Unit Converter</a></div><div><h4>Viewer</h4><a href="../viewer.html">STEP Viewer</a></div></div><div class="footer-bottom"><span>© 2026 MechProTools</span><span>Free forever</span></div></footer>
+
+<script src="../shared.js"></script>
+<script>
+function showTab(name){document.querySelectorAll('.tab-item').forEach((t,i)=>t.classList.toggle('on',t.textContent.toLowerCase().includes(name.substring(0,4))));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('on',p.id==='tab-'+name));}
+
+// Position calculator
+function calcPosition(){
+  const nx=+document.getElementById('nomX').value,ny=+document.getElementById('nomY').value;
+  const ax=+document.getElementById('actX').value,ay=+document.getElementById('actY').value;
+  const tol=+document.getElementById('posTol').value,bonus=+document.getElementById('mmcBonus').value;
+  const dx=ax-nx,dy=ay-ny;const dev=Math.sqrt(dx*dx+dy*dy);const tp=2*dev;const totalTol=tol+bonus;
+  const pass=tp<=totalTol;
+  document.getElementById('posResult').style.display='block';
+  document.getElementById('posTable').style.display='table';
+  document.getElementById('posVal').textContent=`⌀${tp.toFixed(4)} — ${pass?'PASS ✓':'FAIL ✗'}`;
+  document.getElementById('posVal').style.color=pass?'var(--ok)':'var(--err)';
+  document.getElementById('posLabel').textContent='True position (diametral)';
+  document.getElementById('posSub').textContent=`Allowed: ⌀${totalTol.toFixed(4)}${bonus>0?' (incl. bonus '+bonus.toFixed(4)+')':''} · Deviation: ${dev.toFixed(4)}`;
+  document.getElementById('posTBody').innerHTML=`
+    <tr><td>ΔX</td><td class="mono">${dx.toFixed(4)}</td></tr>
+    <tr><td>ΔY</td><td class="mono">${dy.toFixed(4)}</td></tr>
+    <tr><td>Radial deviation</td><td class="mono">${dev.toFixed(4)}</td></tr>
+    <tr><td style="font-weight:600">True position (⌀)</td><td class="mono" style="font-weight:600">${tp.toFixed(4)}</td></tr>
+    <tr><td>Stated tolerance</td><td class="mono">⌀${tol.toFixed(4)}</td></tr>
+    ${bonus>0?`<tr><td>MMC bonus</td><td class="mono">${bonus.toFixed(4)}</td></tr>`:''}
+    <tr><td>Total allowed</td><td class="mono">⌀${totalTol.toFixed(4)}</td></tr>
+    <tr><td style="font-weight:600">Result</td><td class="mono" style="font-weight:600;color:${pass?'var(--ok)':'var(--err)'}">${pass?'PASS':'FAIL'} — ${pass?'Within':'Exceeds'} tolerance by ${Math.abs(totalTol-tp).toFixed(4)}</td></tr>`;
+}
+
+// Surface finish conversion
+function convRaRz(){const ra=+document.getElementById('raIn').value;document.getElementById('rzOut').value=(ra*4).toFixed(2);}
+convRaRz();
+
+// IT Grades
+const IT_DATA=[
+// [IT1,IT2,IT3,IT4,IT5,IT6,IT7,IT8,IT9,IT10,IT11,IT12,IT13,IT14,IT15,IT16]
+[0.8,1.2,2,3,4,6,10,14,25,40,60,100,140,250,400,600],// 0-3
+[1,1.5,2.5,4,5,8,12,18,30,48,75,120,180,300,480,750],// 3-6
+[1,1.5,2.5,4,6,9,15,22,36,58,90,150,220,360,580,900],// 6-10
+[1.2,2,3,5,8,11,18,27,43,70,110,180,270,430,700,1100],// 10-18
+[1.5,2.5,4,6,9,13,21,33,52,84,130,210,330,520,840,1300],// 18-30
+[1.5,2.5,4,7,11,16,25,39,62,100,160,250,390,620,1000,1600],// 30-50
+[2,3,5,8,13,19,30,46,74,120,190,300,460,740,1200,1900],// 50-80
+[2.5,4,6,10,15,22,35,54,87,140,220,350,540,870,1400,2200],// 80-120
+[3.5,5,8,12,18,25,40,63,100,160,250,400,630,1000,1600,2500],// 120-180
+[4.5,7,10,14,20,29,46,72,115,185,290,460,720,1150,1850,2900],// 180-250
+[6,8,12,16,23,32,52,81,130,210,320,520,810,1300,2100,3200],// 250-315
+[7,9,13,18,25,36,57,89,140,230,360,570,890,1400,2300,3600],// 315-400
+];
+const IT_LABELS=['IT1','IT2','IT3','IT4','IT5','IT6','IT7','IT8','IT9','IT10','IT11','IT12','IT13','IT14','IT15','IT16'];
+const IT_USE=['Gauge blocks','Gauges','Gauges','Close gauges','Precision machining','Fine machining','Machining (H7/g6)','General machining','Loose machining','Casting/forging','Drawing/stamping','Sand casting','Rough casting','Raw material','Raw stock','As-received'];
+
+function showIT(){
+  const idx=+document.getElementById('itSize').value;const data=IT_DATA[idx];
+  document.getElementById('itTable').innerHTML=data.map((v,i)=>`<tr><td class="mono" style="font-weight:600">${IT_LABELS[i]}</td><td class="mono">${v<1000?(v/1000).toFixed(3):v/1000} mm</td><td class="mono">${v} μm</td><td style="font-size:10px;color:var(--txd)">${IT_USE[i]}</td></tr>`).join('');
+}
+showIT();
+</script>
+</body>
+</html>
