@@ -3,641 +3,626 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PDF Drawing Ballooning Tool — Free Online | MechProTools</title>
-<meta name="description" content="Add inspection balloons to PDF engineering drawings online. Place numbered balloons with leaders, adjust sizes, export annotated PDF. Free tool for FAI and quality inspection.">
-<meta name="keywords" content="PDF ballooning tool, balloon drawing, first article inspection, FAI ballooning, engineering drawing balloon, inspection callout, PDF annotation">
-<link rel="canonical" href="https://mechprotools.github.io/tools/pdf-balloon.html">
-<link rel="stylesheet" href="../shared.css">
+<title>PDF Drawing Ballooning Tool — MechProTools</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
-.balloon-app{display:flex;height:calc(100vh - var(--nav-h) - 36px);overflow:hidden}
-.balloon-canvas-wrap{flex:1;background:#525659;overflow:auto;position:relative;cursor:crosshair;display:flex;align-items:flex-start;justify-content:center;padding:20px}
-.balloon-canvas-wrap.pan-mode{cursor:grab}
-.balloon-canvas-wrap.pan-mode:active{cursor:grabbing}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --nav-h:52px;
+  --acc:#0057b8;--acch:#0049a0;--acc2:rgba(0,87,184,.07);--acc-lt:rgba(0,87,184,.09);
+  --bg:#ffffff;--bg2:#f5f6f8;--brd:#dde1e7;--brd2:#eef0f3;
+  --tx:#1a1d23;--tx2:#3d4452;--txd:#7d8694;--err:#c92a2a;
+}
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap');
+body{background:var(--bg2);min-height:100vh;font-family:'Outfit',system-ui,sans-serif;color:var(--tx)}
+.nav{height:var(--nav-h);background:#1a1d23;display:flex;align-items:stretch;position:sticky;top:0;z-index:100}
+.nav-inner{width:100%;padding:0 20px;display:flex;align-items:center;gap:20px}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-weight:700;font-size:14px}
+.nav-logo-icon{width:28px;height:28px;background:var(--acc);border-radius:6px;display:flex;align-items:center;justify-content:center}
+.nav-logo-icon svg{width:16px;height:16px}
+.nav-links{display:flex;align-items:center;gap:2px;margin-left:auto}
+.nav-links a{color:rgba(255,255,255,.65);text-decoration:none;font-size:12px;font-weight:500;padding:6px 10px;border-radius:5px;transition:all .15s}
+.nav-links a:hover{color:#fff;background:rgba(255,255,255,.1)}
+.nav-links a.active{color:#fff;background:rgba(0,87,184,.55)}
+.nav-burger{display:none;width:36px;height:36px;background:none;border:none;cursor:pointer;color:#fff;margin-left:auto}
+@media(max-width:860px){.nav-links{display:none}.nav-burger{display:flex;align-items:center;justify-content:center}}
+.mobile-menu{display:none;background:#1a1d23;border-bottom:1px solid rgba(255,255,255,.1);padding:8px 16px 12px}
+.mobile-menu.open{display:block}
+.mobile-menu a{display:block;color:rgba(255,255,255,.75);text-decoration:none;padding:8px 4px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.06)}
+
+.balloon-app{display:flex;height:calc(100vh - var(--nav-h));overflow:hidden}
+.bcw{flex:1;background:#525659;overflow:auto;position:relative;cursor:crosshair;display:flex;align-items:flex-start;justify-content:center;padding:20px}
+.bcw.pan-mode{cursor:grab}.bcw.pan-mode:active{cursor:grabbing}.bcw.batch-mode{cursor:crosshair}
 #pdfCanvas{display:block;box-shadow:0 4px 24px rgba(0,0,0,.3)}
-.balloon-sidebar{width:280px;background:var(--bg);border-left:1px solid var(--brd);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
-.bs-section{padding:14px;border-bottom:1px solid var(--brd2)}
-.bs-title{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--txd);font-weight:600;margin-bottom:8px}
-.bs-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
-.bs-row label{color:var(--tx2);font-weight:500;min-width:80px;font-size:11px}
-.bs-row input,.bs-row select{flex:1;padding:6px 8px;border:1px solid var(--brd);border-radius:4px;font-size:16px;font-family:'Outfit',sans-serif;outline:none;min-width:0}
-.bs-row input:focus,.bs-row select:focus{border-color:var(--acc)}
-.bs-btn{width:100%;padding:8px;font-size:12px;font-weight:600;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);border-radius:6px;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;margin-bottom:4px}
-.bs-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--acc2)}
-.bs-btn.primary{background:var(--acc);color:#fff;border-color:var(--acc)}
-.bs-btn.primary:hover{background:var(--acch)}
-.bs-btn.danger{color:var(--err);border-color:var(--err)}
-.bs-btn.danger:hover{background:#fef0f0}
-.balloon-list{max-height:200px;overflow-y:auto}
-.bl-item{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:4px;font-size:11px;cursor:pointer;transition:background .1s}
-.bl-item:hover{background:var(--bg2)}
-.bl-item.selected{background:var(--acc-lt);border:1px solid var(--acc)}
-.bl-num{width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
-.bl-text{flex:1;color:var(--tx2);font-weight:500}
-.bl-del{width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txd);border-radius:3px;font-size:14px;flex-shrink:0}
-.bl-del:hover{color:var(--err);background:#fef0f0}
-.page-nav{display:flex;align-items:center;gap:6px;justify-content:center;padding:8px}
-.page-btn{width:28px;height:28px;border:1px solid var(--brd);background:var(--bg);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--tx2)}
-.page-btn:hover{border-color:var(--acc);color:var(--acc)}
-.page-info{font-size:11px;color:var(--txd);font-weight:500}
-.zoom-bar{display:flex;align-items:center;gap:4px;justify-content:center;padding:6px;background:var(--bg2);border-bottom:1px solid var(--brd2)}
-.upload-zone{display:flex;align-items:center;justify-content:center;height:100%;color:var(--txd);text-align:center;padding:40px}
-.upload-box{border:2px dashed var(--brd);border-radius:12px;padding:40px 30px;cursor:pointer;transition:all .2s;max-width:400px}
-.upload-box:hover{border-color:var(--acc);background:rgba(0,87,184,.03)}
-.upload-box h3{font-size:16px;color:var(--tx);margin-bottom:6px}
-.upload-box p{font-size:12px;color:var(--txd)}
-/* SVG overlay for balloons - positioned by container div */
-#balloonOverlay .balloon-g{pointer-events:all;cursor:move}
-#balloonOverlay .balloon-g:hover circle{stroke-width:2.5}
-.mode-indicator{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:var(--acc);color:#fff;padding:5px 14px;border-radius:12px;font-size:11px;font-weight:600;z-index:5;display:none;pointer-events:none}
-.mode-indicator.on{display:block}
-.balloon-canvas-wrap.batch-mode{cursor:crosshair}
-#selectionRect{position:absolute;border:2px dashed #0057b8;background:rgba(0,87,184,.08);pointer-events:none;display:none;z-index:10}
-@media(max-width:768px){.balloon-sidebar{width:220px}.bs-row label{min-width:60px;font-size:10px}}
+.sidebar{width:280px;background:var(--bg);border-left:1px solid var(--brd);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0}
+.ss{padding:14px;border-bottom:1px solid var(--brd2)}
+.st{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:var(--txd);font-weight:600;margin-bottom:8px}
+.sr{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.sr label{color:var(--tx2);font-weight:500;min-width:80px;font-size:11px}
+.sr input,.sr select{flex:1;padding:6px 8px;border:1px solid var(--brd);border-radius:4px;font-size:13px;font-family:inherit;outline:none;min-width:0;background:var(--bg);color:var(--tx)}
+.sr input:focus,.sr select:focus{border-color:var(--acc)}
+.sbtn{width:100%;padding:8px;font-size:12px;font-weight:600;border:1px solid var(--brd);background:var(--bg);color:var(--tx2);border-radius:6px;cursor:pointer;font-family:inherit;transition:all .15s;margin-bottom:4px}
+.sbtn:hover{border-color:var(--acc);color:var(--acc);background:var(--acc2)}
+.sbtn.pri{background:var(--acc);color:#fff;border-color:var(--acc)}.sbtn.pri:hover{background:var(--acch)}
+.sbtn.dan{color:var(--err);border-color:var(--err)}.sbtn.dan:hover{background:#fef0f0}
+.blist{max-height:220px;overflow-y:auto}
+.bi{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:4px;font-size:11px;cursor:pointer;transition:background .1s}
+.bi:hover{background:var(--bg2)}.bi.sel{background:var(--acc-lt);border:1px solid var(--acc)}
+.bn{width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.bt{flex:1;color:var(--tx2);font-weight:500}
+.bd{width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--txd);border-radius:3px;font-size:16px}
+.bd:hover{color:var(--err);background:#fef0f0}
+.pnav{display:flex;align-items:center;gap:6px;justify-content:center;padding:8px}
+.pbtn{width:28px;height:28px;border:1px solid var(--brd);background:var(--bg);border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--tx2)}
+.pbtn:hover{border-color:var(--acc);color:var(--acc)}
+.pi{font-size:11px;color:var(--txd);font-weight:500}
+.zbar{display:flex;align-items:center;gap:4px;justify-content:center;padding:6px;background:var(--bg2);border-bottom:1px solid var(--brd2)}
+.uzone{display:flex;align-items:center;justify-content:center;height:100%;color:var(--txd);text-align:center;padding:40px}
+.ubox{border:2px dashed var(--brd);border-radius:12px;padding:40px 30px;cursor:pointer;transition:all .2s;max-width:380px}
+.ubox:hover{border-color:var(--acc);background:rgba(0,87,184,.03)}
+.ubox h3{font-size:16px;color:var(--tx);margin-bottom:6px}.ubox p{font-size:12px;color:var(--txd)}
+.mind{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:var(--acc);color:#fff;padding:5px 14px;border-radius:12px;font-size:11px;font-weight:600;z-index:5;display:none;pointer-events:none;white-space:nowrap}
+.mind.on{display:block}
+#selRect{position:absolute;border:2px dashed #0057b8;background:rgba(0,87,184,.08);pointer-events:none;display:none;z-index:10}
+
+/* Ortho status bar */
+.osbar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:none;background:rgba(0,0,0,.82);color:#fff;border-radius:10px;padding:7px 18px;font-size:11px;font-weight:500;z-index:20;pointer-events:none;white-space:nowrap;align-items:center;gap:10px}
+.osbar.on{display:flex}
+.oss{opacity:.35}.oss.cur{opacity:1;color:#7ecfff;font-weight:700}.oss.done{opacity:.55;text-decoration:line-through}
+
+/* Tutorial */
+.tov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:none;align-items:center;justify-content:center}
+.tov.show{display:flex}
+.tbox{background:#fff;border-radius:14px;max-width:560px;width:94%;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.28)}
+.thd{background:#0057b8;padding:18px 22px 14px;color:#fff}
+.thd h2{font-size:16px;font-weight:700;margin:0 0 2px}.thd p{font-size:11px;opacity:.75;margin:0}
+.ttabs{display:flex;border-bottom:1px solid #e8eaed}
+.ttab{flex:1;padding:9px 4px;border:none;background:none;font-size:11px;font-weight:600;cursor:pointer;color:#888;border-bottom:2px solid transparent;font-family:inherit}
+.ttab.on{color:#0057b8;border-bottom-color:#0057b8}
+.tsl{display:none;padding:18px 22px;min-height:210px}.tsl.on{display:block}
+.tsl h3{font-size:13px;font-weight:700;color:#1a1a1a;margin:0 0 8px}
+.tsl p{font-size:12px;color:#555;line-height:1.65;margin:0 0 8px}
+.ttip{background:#f0f6ff;border-left:3px solid #0057b8;padding:8px 12px;border-radius:0 6px 6px 0;font-size:11px;color:#1a4a8a;margin-top:8px}
+.tcards{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+.tcard{flex:1;min-width:110px;background:#f8f9fa;border:1px solid #e0e4ea;border-radius:8px;padding:10px 8px 8px;text-align:center}
+.tcard svg{display:block;margin:0 auto 6px}
+.tcard b{display:block;font-size:11px;color:#1a1a1a}
+.tcard small{display:block;font-size:10px;color:#777;line-height:1.4;margin-top:3px}
+.tft{display:flex;align-items:center;justify-content:space-between;padding:12px 22px;border-top:1px solid #e8eaed;background:#fafafa}
+.tdots{display:flex;gap:5px}
+.tdot{width:7px;height:7px;border-radius:50%;background:#ddd;cursor:pointer;transition:background .15s}
+.tdot.on{background:#0057b8}
+.tbtn{padding:7px 16px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;border:1px solid #ddd;background:#fff;color:#444;font-family:inherit}
+.tbtn.p{background:#0057b8;color:#fff;border-color:#0057b8}
+.tskip{font-size:11px;color:#aaa;cursor:pointer;text-decoration:underline;background:none;border:none;font-family:inherit}
 </style>
 </head>
 <body>
 
-<nav class="nav"><div class="nav-inner"><a href="../index.html" class="nav-logo"><div class="nav-logo-icon"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 8h12M8 2v12"/></svg></div><span class="mono">MECHPRO<span style="color:var(--tx2);font-weight:400">TOOLS</span></span></a><div class="nav-links"><a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a><a href="metal-weight.html">Metal Weight</a><a href="taper-calc.html">Taper</a><a href="drill-tap.html">Drill &amp; Tap</a><a href="gdt.html">GD&amp;T</a><a href="pdf-balloon.html">PDF Balloon</a><a href="../blog.html">Blog</a></div><button class="nav-burger" id="navBurger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button></div></nav>
-<div class="mobile-menu" id="mobileMenu"><a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a><a href="metal-weight.html">Metal Weight</a><a href="taper-calc.html">Taper Calc</a><a href="drill-tap.html">Drill &amp; Tap</a><a href="gdt.html">GD&amp;T</a><a href="pdf-balloon.html">PDF Balloon</a><a href="../blog.html">Blog</a></div>
-
-<input type="file" id="pdfInput" accept=".pdf" style="display:none">
-
-<div class="balloon-app">
-  <!-- Canvas area -->
-  <div class="balloon-canvas-wrap" id="canvasWrap">
-    <div class="mode-indicator" id="modeInd">Click on drawing to place balloon</div>
-    <div class="upload-zone" id="uploadZone">
-      <label for="pdfInput" class="upload-box">
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#7d8694" stroke-width="1.5" style="margin:0 auto 12px;display:block"><rect x="8" y="4" width="32" height="40" rx="3"/><path d="M16 4v10h-8M24 22v10M20 28l4-4 4 4"/></svg>
-        <h3>Open PDF Drawing</h3>
-        <p>Click to browse or drag & drop your PDF file</p>
-      </label>
-    </div>
-    <!-- Canvas + SVG overlay wrapper — keeps them perfectly aligned -->
-    <div id="canvasContainer" style="position:relative;display:inline-block;margin:auto">
-      <canvas id="pdfCanvas" style="display:none"></canvas>
-      <svg id="balloonOverlay" style="display:none;position:absolute;top:0;left:0"></svg>
-      <div id="selectionRect"></div>
-    </div>
+<nav class="nav"><div class="nav-inner">
+  <a href="../index.html" class="nav-logo">
+    <div class="nav-logo-icon"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 8h12M8 2v12"/></svg></div>
+    <span>MECHPRO<span style="opacity:.45;font-weight:400">TOOLS</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a>
+    <a href="metal-weight.html">Metal Weight</a><a href="taper-calc.html">Taper</a>
+    <a href="drill-tap.html">Drill &amp; Tap</a><a href="gdt.html">GD&amp;T</a>
+    <a href="pdf-balloon.html" class="active">PDF Balloon</a><a href="../blog.html">Blog</a>
   </div>
+  <button class="nav-burger" id="navBurger" onclick="document.getElementById('mob').classList.toggle('open')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+</div></nav>
+<div class="mobile-menu" id="mob">
+  <a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a>
+  <a href="metal-weight.html">Metal Weight</a><a href="taper-calc.html">Taper</a>
+  <a href="drill-tap.html">Drill &amp; Tap</a><a href="gdt.html">GD&amp;T</a>
+  <a href="pdf-balloon.html">PDF Balloon</a><a href="../blog.html">Blog</a>
+</div>
 
-  <!-- Sidebar -->
-  <div class="balloon-sidebar">
-    <div class="bs-section">
-      <div class="bs-title">File</div>
-      <label for="pdfInput" class="bs-btn primary" style="display:block;text-align:center;cursor:pointer">Open PDF</label>
-      <div class="page-nav" id="pageNav" style="display:none">
-        <button class="page-btn" id="prevPage">‹</button>
-        <span class="page-info" id="pageInfo">1 / 1</span>
-        <button class="page-btn" id="nextPage">›</button>
+<!-- TUTORIAL -->
+<div class="tov" id="tov">
+  <div class="tbox">
+    <div class="thd"><h2>Welcome to PDF Balloon Tool</h2><p>MechProTools — Quick start guide (shown once)</p></div>
+    <div class="ttabs">
+      <button class="ttab on" onclick="goS(0)">1. Open PDF</button>
+      <button class="ttab" onclick="goS(1)">2. Leader types</button>
+      <button class="ttab" onclick="goS(2)">3. Ortho 90°</button>
+      <button class="ttab" onclick="goS(3)">4. Export</button>
+    </div>
+    <div class="tsl on" id="s0">
+      <h3>Open your PDF engineering drawing</h3>
+      <p>Click <b>Open PDF</b> in the sidebar or drag &amp; drop a PDF directly onto the canvas area. Use mouse wheel to zoom, or use the +/− buttons. Press ⊡ to auto-fit the drawing to screen.</p>
+      <div class="ttip">Tip: zoom in close to a feature before clicking to place a balloon — more precision with smaller targets.</div>
+    </div>
+    <div class="tsl" id="s1">
+      <h3>Three leader types available</h3>
+      <div class="tcards">
+        <div class="tcard"><svg width="52" height="44" viewBox="0 0 52 44"><line x1="8" y1="36" x2="34" y2="14" stroke="#0057b8" stroke-width="1.5"/><circle cx="8" cy="36" r="3" fill="#0057b8"/><circle cx="34" cy="14" r="9" fill="white" stroke="#0057b8" stroke-width="1.5"/><text x="34" y="18" text-anchor="middle" font-size="8" fill="#0057b8" font-weight="700">3</text></svg><b>Straight / Arrow</b><small>1 click = 1 balloon placed immediately</small></div>
+        <div class="tcard"><svg width="52" height="44" viewBox="0 0 52 44"><line x1="8" y1="36" x2="8" y2="16" stroke="#c92a2a" stroke-width="1.5"/><line x1="8" y1="16" x2="28" y2="16" stroke="#c92a2a" stroke-width="1.5"/><circle cx="8" cy="36" r="3" fill="#c92a2a"/><circle cx="36" cy="16" r="9" fill="white" stroke="#c92a2a" stroke-width="1.5"/><text x="36" y="20" text-anchor="middle" font-size="8" fill="#c92a2a" font-weight="700">3</text></svg><b>Orthogonal 90°</b><small>3 clicks = 1 balloon with right-angle leader</small></div>
       </div>
+      <div class="ttip">Select Orthogonal 90° in the Leader dropdown to activate 3-click mode.</div>
     </div>
-
-    <div class="zoom-bar">
-      <button class="page-btn" id="zoomOut">−</button>
-      <span class="page-info" id="zoomInfo">100%</span>
-      <button class="page-btn" id="zoomIn">+</button>
-      <button class="page-btn" id="zoomFit" title="Fit">⊡</button>
-    </div>
-
-    <div class="bs-section">
-      <div class="bs-title">Balloon settings</div>
-      <div class="bs-row"><label>Size</label><input type="range" id="balloonSize" min="14" max="50" value="24" oninput="updateSizeLabel()"><span id="sizeLabel" style="font-size:10px;color:var(--txd);min-width:28px">24</span></div>
-      <div class="bs-row"><label>Next #</label><input type="number" id="nextNum" value="1" min="1" style="width:60px"></div>
-      <div class="bs-row"><label>Color</label>
-        <select id="balloonColor">
-          <option value="#0057b8">Blue</option>
-          <option value="#c92a2a">Red</option>
-          <option value="#0a8a5e">Green</option>
-          <option value="#c77600">Orange</option>
-          <option value="#111111">Black</option>
-        </select>
+    <div class="tsl" id="s2">
+      <h3>Orthogonal 90° — 3 clicks per balloon</h3>
+      <div class="tcards">
+        <div class="tcard"><svg width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="#0057b8"/><text x="14" y="18" text-anchor="middle" font-size="12" fill="white" font-weight="700">1</text></svg><b>Click 1</b><small>Feature point — where leader tip touches the drawing feature</small></div>
+        <div class="tcard"><svg width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="#0057b8"/><text x="14" y="18" text-anchor="middle" font-size="12" fill="white" font-weight="700">2</text></svg><b>Click 2</b><small>Elbow point — where the 90° bend happens in the leader line</small></div>
+        <div class="tcard"><svg width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" fill="#0057b8"/><text x="14" y="18" text-anchor="middle" font-size="12" fill="white" font-weight="700">3</text></svg><b>Click 3</b><small>Balloon position — where the circle with number appears</small></div>
       </div>
-      <div class="bs-row"><label>Leader</label>
-        <select id="leaderStyle">
-          <option value="line">Straight line</option>
-          <option value="arrow">Arrow</option>
-          <option value="none">No leader</option>
-        </select>
+      <p style="margin-top:8px">A dashed ghost preview follows your cursor at each step so you can see the path before committing. Press <b>Esc</b> at any time to cancel.</p>
+      <div class="ttip">If Click 3 is placed at the same spot as Click 2, no bend is made — it becomes a straight line automatically.</div>
+    </div>
+    <div class="tsl" id="s3">
+      <h3>Export your annotated PDF</h3>
+      <p>When done, click <b>Export Annotated PDF</b>. All balloons and leaders are permanently baked into the PDF at full resolution — ready for FAI, inspection reports, or customer delivery.</p>
+      <p>Use <b>Select/Move</b> mode to drag balloons or leader tips to reposition after placing. Delete individual balloons from the sidebar list.</p>
+      <div class="ttip">Tip: you can place balloons across multiple pages — they are tracked per page.</div>
+    </div>
+    <div class="tft">
+      <button class="tskip" onclick="closeTut()">Don't show again</button>
+      <div class="tdots">
+        <div class="tdot on" onclick="goS(0)"></div><div class="tdot" onclick="goS(1)"></div>
+        <div class="tdot" onclick="goS(2)"></div><div class="tdot" onclick="goS(3)"></div>
       </div>
-      <div class="bs-row"><label>Line width</label><input type="range" id="leaderWidth" min="1" max="5" value="1.5" step="0.5"><span id="lwLabel" style="font-size:10px;color:var(--txd);min-width:20px">1.5</span></div>
-      <div class="bs-row"><label>Font</label>
-        <select id="balloonFont">
-          <option value="bold">Bold</option>
-          <option value="normal">Normal</option>
-        </select>
+      <div style="display:flex;gap:8px">
+        <button class="tbtn" id="tprev" onclick="goS(tutN-1)" style="display:none">← Back</button>
+        <button class="tbtn p" id="tnext" onclick="tutNxt()">Next →</button>
       </div>
-    </div>
-
-    <div class="bs-section">
-      <div class="bs-title">Mode</div>
-      <button class="bs-btn primary" id="placeModeBtn" onclick="togglePlaceMode()">Click to Place</button>
-      <button class="bs-btn" id="batchModeBtn" onclick="setBatchMode()">Batch Select Area</button>
-      <button class="bs-btn" id="selectModeBtn" onclick="setSelectMode()">Select / Move</button>
-    </div>
-
-    <div class="bs-section" id="batchOptions" style="display:none">
-      <div class="bs-title">Batch settings</div>
-      <div class="bs-row"><label>Count</label><input type="number" id="batchCount" value="5" min="1" max="50" style="width:60px"><span style="font-size:10px;color:var(--txd)">balloons</span></div>
-      <div class="bs-row"><label>Place along</label>
-        <select id="batchEdge">
-          <option value="top">Top edge</option>
-          <option value="bottom">Bottom edge</option>
-          <option value="left">Left edge</option>
-          <option value="right">Right edge</option>
-          <option value="auto">Auto (nearest edge)</option>
-        </select>
-      </div>
-      <p style="font-size:10px;color:var(--txd);line-height:1.5;margin-top:4px">Draw a rectangle on the drawing. Balloons will be placed along the selected edge with leaders pointing into the selected area.</p>
-    </div>
-
-    <div class="bs-section" style="flex:1">
-      <div class="bs-title">Balloons (<span id="balloonCount">0</span>)</div>
-      <div class="balloon-list" id="balloonList"><div style="font-size:11px;color:var(--txd);padding:10px 0;text-align:center">No balloons placed yet</div></div>
-    </div>
-
-    <div class="bs-section">
-      <button class="bs-btn primary" id="exportBtn" onclick="exportPDF()" style="display:none">Export Annotated PDF</button>
-      <button class="bs-btn danger" id="clearBtn" onclick="clearAll()" style="display:none">Clear All Balloons</button>
     </div>
   </div>
 </div>
 
-<script src="../shared.js"></script>
+<input type="file" id="pdfIn" accept=".pdf" style="display:none">
+
+<div class="balloon-app">
+  <div class="bcw" id="wrap">
+    <div class="mind" id="mind">Click on drawing to place balloon</div>
+    <!-- Ortho 3-click status bar -->
+    <div class="osbar" id="osbar">
+      <span class="oss cur" id="os1">① Feature pt</span>
+      <span style="opacity:.3">→</span>
+      <span class="oss" id="os2">② Elbow</span>
+      <span style="opacity:.3">→</span>
+      <span class="oss" id="os3">③ Balloon</span>
+      <span style="font-size:10px;opacity:.4;margin-left:6px">[Esc]=cancel</span>
+    </div>
+    <div class="uzone" id="uzone">
+      <label for="pdfIn" class="ubox">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="#7d8694" stroke-width="1.5" style="margin:0 auto 12px;display:block"><rect x="8" y="4" width="32" height="40" rx="3"/><path d="M16 4v10h-8M24 22v10M20 28l4-4 4 4"/></svg>
+        <h3>Open PDF Drawing</h3><p>Click to browse or drag &amp; drop your PDF</p>
+      </label>
+    </div>
+    <div id="cc" style="position:relative;display:inline-block;margin:auto">
+      <canvas id="cv" style="display:none"></canvas>
+      <svg id="ov" style="display:none;position:absolute;top:0;left:0"></svg>
+      <div id="selRect"></div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="ss">
+      <div class="st">File</div>
+      <label for="pdfIn" class="sbtn pri" style="display:block;text-align:center;cursor:pointer">Open PDF</label>
+      <div class="pnav" id="pnav" style="display:none">
+        <button class="pbtn" id="prevPg">‹</button>
+        <span class="pi" id="pgInfo">1 / 1</span>
+        <button class="pbtn" id="nextPg">›</button>
+      </div>
+    </div>
+    <div class="zbar">
+      <button class="pbtn" id="zOut">−</button>
+      <span class="pi" id="zInfo">100%</span>
+      <button class="pbtn" id="zIn">+</button>
+      <button class="pbtn" id="zFit" title="Fit">⊡</button>
+    </div>
+    <div class="ss">
+      <div class="st">Balloon settings</div>
+      <div class="sr"><label>Size</label><input type="range" id="bSize" min="14" max="50" value="24" oninput="document.getElementById('sLbl').textContent=this.value"><span id="sLbl" style="font-size:10px;color:var(--txd);min-width:24px">24</span></div>
+      <div class="sr"><label>Next #</label><input type="number" id="nNum" value="1" min="1" style="width:60px"></div>
+      <div class="sr"><label>Color</label>
+        <select id="bCol">
+          <option value="#0057b8">Blue</option><option value="#c92a2a">Red</option>
+          <option value="#0a8a5e">Green</option><option value="#c77600">Orange</option>
+          <option value="#111111">Black</option>
+        </select>
+      </div>
+      <div class="sr"><label>Leader</label>
+        <select id="lStyle" onchange="onLdrChange()">
+          <option value="line">Straight line</option>
+          <option value="arrow">Arrow</option>
+          <option value="ortho">Orthogonal 90°</option>
+          <option value="none">No leader</option>
+        </select>
+      </div>
+      <div class="sr"><label>Line width</label><input type="range" id="lw" min="1" max="5" value="1.5" step="0.5" oninput="document.getElementById('lwLbl').textContent=this.value"><span id="lwLbl" style="font-size:10px;color:var(--txd);min-width:20px">1.5</span></div>
+      <div class="sr"><label>Font</label>
+        <select id="bFont"><option value="bold">Bold</option><option value="normal">Normal</option></select>
+      </div>
+    </div>
+    <div class="ss">
+      <div class="st">Mode</div>
+      <button class="sbtn pri" id="placeBtn" onclick="setPlace()">Click to Place</button>
+      <button class="sbtn" id="batchBtn" onclick="setBatch()">Batch Select Area</button>
+      <button class="sbtn" id="selBtn" onclick="setSel()">Select / Move</button>
+    </div>
+    <div class="ss" id="batchOpts" style="display:none">
+      <div class="st">Batch settings</div>
+      <div class="sr"><label>Count</label><input type="number" id="bCount" value="5" min="1" max="50" style="width:60px"><span style="font-size:10px;color:var(--txd)">balloons</span></div>
+      <div class="sr"><label>Place along</label>
+        <select id="bEdge">
+          <option value="top">Top edge</option><option value="bottom">Bottom edge</option>
+          <option value="left">Left edge</option><option value="right">Right edge</option>
+          <option value="auto">Auto (nearest)</option>
+        </select>
+      </div>
+      <p style="font-size:10px;color:var(--txd);line-height:1.5;margin-top:4px">Draw a rectangle on the drawing to batch-place balloons along the selected edge.</p>
+    </div>
+    <div class="ss" style="flex:1">
+      <div class="st">Balloons (<span id="bCount2">0</span>)</div>
+      <div class="blist" id="bList"><div style="font-size:11px;color:var(--txd);padding:10px 0;text-align:center">No balloons placed yet</div></div>
+    </div>
+    <div class="ss">
+      <button class="sbtn pri" id="expBtn" onclick="exportPDF()" style="display:none">Export Annotated PDF</button>
+      <button class="sbtn dan" id="clrBtn" onclick="clearAll()" style="display:none">Clear All Balloons</button>
+    </div>
+  </div>
+</div>
+
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-let pdfDoc=null,currentPage=1,scale=1.0,balloons=[],selectedBalloon=-1;
-let placeMode=true,batchMode=false,isDragging=false,dragIdx=-1,dragOffX=0,dragOffY=0;
-let leaderDragging=false;
-// Batch selection state
-let batchSelecting=false,batchStartX=0,batchStartY=0;
-const selRect=document.getElementById('selectionRect');
-const canvas=document.getElementById('pdfCanvas');
-const ctx=canvas.getContext('2d');
-const overlay=document.getElementById('balloonOverlay');
-const wrap=document.getElementById('canvasWrap');
+// ===== STATE =====
+let pdf=null, pg=1, sc=1.0, balls=[], selB=-1;
+let placing=true, batching=false;
+let dragging=false, dIdx=-1, dOX=0, dOY=0, lDrag=false;
+let bSel=false, bSX=0, bSY=0;
 
-function updateSizeLabel(){document.getElementById('sizeLabel').textContent=document.getElementById('balloonSize').value;}
-document.getElementById('leaderWidth').addEventListener('input',function(){document.getElementById('lwLabel').textContent=this.value;});
+// Ortho 3-click state: 0=idle, 1=tip set, 2=elbow set
+let oStep=0, oTip={x:0,y:0}, oElb={x:0,y:0}, oMouse={x:0,y:0};
 
-// ===== COORDINATE HELPERS =====
-// Convert canvas pixel position to PDF points (scale-independent)
-function canvasToPdf(cx,cy){return{x:cx/scale,y:cy/scale};}
-// Convert PDF points to current canvas pixels
-function pdfToCanvas(px,py){return{x:px*scale,y:py*scale};}
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const ov=document.getElementById('ov');
+const wrap=document.getElementById('wrap');
+const sr=document.getElementById('selRect');
 
-// ========== PDF LOADING ==========
-document.getElementById('pdfInput').addEventListener('change',async function(e){
-  const file=e.target.files[0];if(!file)return;
-  const data=await file.arrayBuffer();
-  pdfDoc=await pdfjsLib.getDocument({data}).promise;
-  currentPage=1;document.getElementById('uploadZone').style.display='none';
-  canvas.style.display='block';overlay.style.display='block';
-  document.getElementById('pageNav').style.display='flex';
-  document.getElementById('exportBtn').style.display='block';
-  document.getElementById('clearBtn').style.display='block';
-  document.getElementById('modeInd').classList.add('on');
-  // Auto fit on first load
-  const pg=await pdfDoc.getPage(1);
-  const vp=pg.getViewport({scale:1});
-  const wrapW=wrap.clientWidth-40,wrapH=wrap.clientHeight-40;
-  scale=Math.min(wrapW/vp.width,wrapH/vp.height);
-  renderPage();
-});
+function p2c(x,y){return{x:x*sc,y:y*sc};}
+function c2p(x,y){return{x:x/sc,y:y/sc};}
+function gv(id){return document.getElementById(id);}
 
+// ===== TUTORIAL =====
+let tutN=0;
+(function initTut(){if(!localStorage.getItem('mpt_bl3'))gv('tov').classList.add('show');})();
+function closeTut(){localStorage.setItem('mpt_bl3','1');gv('tov').classList.remove('show');}
+function goS(n){
+  n=Math.max(0,Math.min(3,n));tutN=n;
+  document.querySelectorAll('.tsl').forEach((s,i)=>s.classList.toggle('on',i===n));
+  document.querySelectorAll('.ttab').forEach((b,i)=>b.classList.toggle('on',i===n));
+  document.querySelectorAll('.tdot').forEach((d,i)=>d.classList.toggle('on',i===n));
+  gv('tprev').style.display=n>0?'':'none';
+  gv('tnext').textContent=n===3?'Get started':'Next →';
+}
+function tutNxt(){if(tutN===3)closeTut();else goS(tutN+1);}
+
+// ===== ORTHO UI =====
+function onLdrChange(){
+  resetO();
+  const isO=gv('lStyle').value==='ortho';
+  gv('mind').textContent=isO?'Ortho: Click 1=feature  Click 2=elbow  Click 3=balloon':'Click on drawing to place balloon';
+}
+function resetO(){
+  oStep=0;
+  const g=document.getElementById('og');if(g)g.remove();
+  updateOBar();
+}
+function updateOBar(){
+  const isO=gv('lStyle').value==='ortho';
+  const bar=gv('osbar');
+  if(!isO||oStep===0){bar.classList.remove('on');return;}
+  bar.classList.add('on');
+  gv('os1').className='oss'+(oStep===1?' cur':' done');
+  gv('os2').className='oss'+(oStep===2?' cur':oStep>2?' done':'');
+  gv('os3').className='oss'+(oStep===3?' cur':'');
+}
+function drawGhost(){
+  const eg=document.getElementById('og');if(eg)eg.remove();
+  if(oStep===0)return;
+  const col=gv('bCol').value;
+  const sz=parseInt(gv('bSize').value);
+  const lw=Math.max(1,parseFloat(gv('lw').value)*sc);
+  const r=(sz/2+2)*sc;
+  const tx=oTip.x*sc,ty=oTip.y*sc;
+  const ex=oElb.x*sc,ey=oElb.y*sc;
+  const mx=oMouse.x*sc,my=oMouse.y*sc;
+  let d=oStep===1?`M${tx},${ty} L${mx},${my}`:`M${tx},${ty} L${ex},${ey} L${mx},${my}`;
+  const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.id='og';g.style.pointerEvents='none';g.style.opacity='0.52';
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d',d);path.setAttribute('fill','none');path.setAttribute('stroke',col);
+  path.setAttribute('stroke-width',lw);path.setAttribute('stroke-dasharray','7,4');
+  g.appendChild(path);
+  const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dot.setAttribute('cx',tx);dot.setAttribute('cy',ty);dot.setAttribute('r',Math.max(3,lw+1));dot.setAttribute('fill',col);
+  g.appendChild(dot);
+  if(oStep===2){
+    const num=parseInt(gv('nNum').value)||1;
+    const circ=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    circ.setAttribute('cx',mx);circ.setAttribute('cy',my);circ.setAttribute('r',r);
+    circ.setAttribute('fill','white');circ.setAttribute('stroke',col);circ.setAttribute('stroke-width','2');
+    g.appendChild(circ);
+    const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x',mx);txt.setAttribute('y',my);txt.setAttribute('text-anchor','middle');
+    txt.setAttribute('dominant-baseline','central');txt.setAttribute('fill',col);
+    txt.setAttribute('font-size',sz*0.65*sc);txt.setAttribute('font-weight',gv('bFont').value);
+    txt.setAttribute('font-family','Outfit,sans-serif');txt.textContent=num;
+    g.appendChild(txt);
+  }
+  ov.appendChild(g);
+}
+
+// ===== PDF LOAD =====
+gv('pdfIn').addEventListener('change',async e=>{const f=e.target.files[0];if(f)await loadPDF(await f.arrayBuffer());});
 wrap.addEventListener('dragover',e=>e.preventDefault());
-wrap.addEventListener('drop',async e=>{
-  e.preventDefault();
-  const file=e.dataTransfer.files[0];
-  if(file&&file.type==='application/pdf'){
-    const data=await file.arrayBuffer();
-    pdfDoc=await pdfjsLib.getDocument({data}).promise;
-    currentPage=1;document.getElementById('uploadZone').style.display='none';
-    canvas.style.display='block';overlay.style.display='block';
-    document.getElementById('pageNav').style.display='flex';
-    document.getElementById('exportBtn').style.display='block';
-    document.getElementById('clearBtn').style.display='block';
-    const pg=await pdfDoc.getPage(1);
-    const vp=pg.getViewport({scale:1});
-    scale=Math.min((wrap.clientWidth-40)/vp.width,(wrap.clientHeight-40)/vp.height);
-    renderPage();
-  }
-});
-
-async function renderPage(){
-  if(!pdfDoc)return;
-  const page=await pdfDoc.getPage(currentPage);
-  const vp=page.getViewport({scale});
-  canvas.width=vp.width;canvas.height=vp.height;
-  overlay.setAttribute('width',vp.width);overlay.setAttribute('height',vp.height);
-  overlay.style.width=vp.width+'px';overlay.style.height=vp.height+'px';
-  overlay.style.pointerEvents='none'; // SVG itself doesn't block clicks; children opt-in
-  await page.render({canvasContext:ctx,viewport:vp}).promise;
-  document.getElementById('pageInfo').textContent=`${currentPage} / ${pdfDoc.numPages}`;
-  document.getElementById('zoomInfo').textContent=Math.round(scale*100)+'%';
-  renderBalloons();
-}
-
-document.getElementById('prevPage').addEventListener('click',()=>{if(currentPage>1){currentPage--;renderPage();}});
-document.getElementById('nextPage').addEventListener('click',()=>{if(pdfDoc&&currentPage<pdfDoc.numPages){currentPage++;renderPage();}});
-document.getElementById('zoomIn').addEventListener('click',()=>{scale=Math.min(4,scale*1.2);renderPage();});
-document.getElementById('zoomOut').addEventListener('click',()=>{scale=Math.max(0.3,scale/1.2);renderPage();});
-document.getElementById('zoomFit').addEventListener('click',async()=>{
-  if(!pdfDoc)return;const page=await pdfDoc.getPage(currentPage);
-  const vp=page.getViewport({scale:1});
-  scale=Math.min((wrap.clientWidth-40)/vp.width,(wrap.clientHeight-40)/vp.height);
+wrap.addEventListener('drop',async e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f&&f.type==='application/pdf')await loadPDF(await f.arrayBuffer());});
+async function loadPDF(data){
+  pdf=await pdfjsLib.getDocument({data}).promise;pg=1;
+  gv('uzone').style.display='none';
+  cv.style.display='block';ov.style.display='block';
+  gv('pnav').style.display='flex';
+  gv('expBtn').style.display='block';gv('clrBtn').style.display='block';
+  gv('mind').classList.add('on');
+  const p=await pdf.getPage(1),vp=p.getViewport({scale:1});
+  sc=Math.min((wrap.clientWidth-40)/vp.width,(wrap.clientHeight-40)/vp.height);
   renderPage();
+}
+async function renderPage(){
+  if(!pdf)return;
+  const page=await pdf.getPage(pg);
+  const vp=page.getViewport({scale:sc});
+  cv.width=vp.width;cv.height=vp.height;
+  ov.setAttribute('width',vp.width);ov.setAttribute('height',vp.height);
+  ov.style.width=vp.width+'px';ov.style.height=vp.height+'px';
+  ov.style.pointerEvents='none';
+  await page.render({canvasContext:ctx,viewport:vp}).promise;
+  gv('pgInfo').textContent=`${pg}/${pdf.numPages}`;
+  gv('zInfo').textContent=Math.round(sc*100)+'%';
+  renderBalls();
+}
+gv('prevPg').onclick=()=>{if(pg>1){pg--;renderPage();}};
+gv('nextPg').onclick=()=>{if(pdf&&pg<pdf.numPages){pg++;renderPage();}};
+gv('zIn').onclick=()=>{sc=Math.min(4,sc*1.2);renderPage();};
+gv('zOut').onclick=()=>{sc=Math.max(0.3,sc/1.2);renderPage();};
+gv('zFit').onclick=async()=>{if(!pdf)return;const vp=(await pdf.getPage(pg)).getViewport({scale:1});sc=Math.min((wrap.clientWidth-40)/vp.width,(wrap.clientHeight-40)/vp.height);renderPage();};
+let zt=null,rend=false;
+wrap.addEventListener('wheel',e=>{if(!pdf)return;e.preventDefault();sc=e.deltaY<0?Math.min(4,sc*1.1):Math.max(0.15,sc/1.1);gv('zInfo').textContent=Math.round(sc*100)+'%';if(zt)clearTimeout(zt);zt=setTimeout(()=>{if(!rend){rend=true;renderPage().then(()=>rend=false);}},60);},{passive:false});
+
+// ===== MODES =====
+function setPlace(){
+  placing=true;batching=false;
+  gv('placeBtn').classList.add('pri');gv('batchBtn').classList.remove('pri');gv('selBtn').classList.remove('pri');
+  gv('batchOpts').style.display='none';wrap.className='bcw';
+  onLdrChange();gv('mind').classList.add('on');
+}
+function setBatch(){
+  placing=false;batching=true;resetO();
+  gv('placeBtn').classList.remove('pri');gv('batchBtn').classList.add('pri');gv('selBtn').classList.remove('pri');
+  gv('batchOpts').style.display='block';wrap.className='bcw batch-mode';
+  gv('mind').textContent='Draw a rectangle to batch-place balloons';gv('mind').classList.add('on');
+}
+function setSel(){
+  placing=false;batching=false;resetO();
+  gv('placeBtn').classList.remove('pri');gv('batchBtn').classList.remove('pri');gv('selBtn').classList.add('pri');
+  gv('batchOpts').style.display='none';wrap.className='bcw pan-mode';
+  gv('mind').textContent='Click balloon to select · drag to move';gv('mind').classList.add('on');
+  setTimeout(()=>gv('mind').classList.remove('on'),2000);
+}
+
+// ===== BATCH =====
+cv.addEventListener('mousedown',e=>{
+  if(!batching||!pdf)return;
+  const r=cv.getBoundingClientRect();bSX=e.clientX-r.left;bSY=e.clientY-r.top;bSel=true;
+  sr.style.cssText=`display:block;left:${bSX}px;top:${bSY}px;width:0;height:0`;
 });
-
-// ===== MOUSE WHEEL ZOOM (debounced) =====
-let zoomTimer=null,isRendering=false;
-wrap.addEventListener('wheel',function(e){
-  if(!pdfDoc)return;
-  e.preventDefault();
-  if(e.deltaY<0)scale=Math.min(4,scale*1.1);
-  else scale=Math.max(0.15,scale/1.1);
-  document.getElementById('zoomInfo').textContent=Math.round(scale*100)+'%';
-  // Debounce: wait for wheel to stop, then render once
-  if(zoomTimer)clearTimeout(zoomTimer);
-  zoomTimer=setTimeout(()=>{
-    if(!isRendering){isRendering=true;renderPage().then(()=>{isRendering=false;});}
-  },60);
-},{passive:false});
-
-// ========== MODE SWITCHING ==========
-function clearModes(){
-  placeMode=false;batchMode=false;
-  document.getElementById('placeModeBtn').classList.remove('primary');
-  document.getElementById('batchModeBtn').classList.remove('primary');
-  document.getElementById('selectModeBtn').classList.remove('primary');
-  document.getElementById('batchOptions').style.display='none';
-  wrap.classList.remove('pan-mode','batch-mode');
-}
-function togglePlaceMode(){
-  clearModes();placeMode=true;
-  document.getElementById('placeModeBtn').classList.add('primary');
-  document.getElementById('modeInd').textContent='Click on drawing to place balloon';
-  document.getElementById('modeInd').classList.add('on');
-}
-function setBatchMode(){
-  clearModes();batchMode=true;
-  document.getElementById('batchModeBtn').classList.add('primary');
-  document.getElementById('batchOptions').style.display='block';
-  wrap.classList.add('batch-mode');
-  document.getElementById('modeInd').textContent='Draw a rectangle to select area for batch balloons';
-  document.getElementById('modeInd').classList.add('on');
-}
-function setSelectMode(){
-  clearModes();
-  document.getElementById('selectModeBtn').classList.add('primary');
-  wrap.classList.add('pan-mode');
-  document.getElementById('modeInd').textContent='Click balloon to select, drag to move';
-  document.getElementById('modeInd').classList.add('on');
-  setTimeout(()=>document.getElementById('modeInd').classList.remove('on'),2000);
-}
-
-// ========== BATCH SELECTION — draw rectangle ==========
-canvas.addEventListener('mousedown',function(e){
-  if(!batchMode||!pdfDoc)return;
-  const rect=canvas.getBoundingClientRect();
-  batchStartX=e.clientX-rect.left;
-  batchStartY=e.clientY-rect.top;
-  batchSelecting=true;
-  selRect.style.display='block';
-  selRect.style.left=batchStartX+'px';
-  selRect.style.top=batchStartY+'px';
-  selRect.style.width='0px';
-  selRect.style.height='0px';
+cv.addEventListener('mousemove',e=>{
+  if(!bSel)return;
+  const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;
+  sr.style.left=Math.min(bSX,mx)+'px';sr.style.top=Math.min(bSY,my)+'px';
+  sr.style.width=Math.abs(mx-bSX)+'px';sr.style.height=Math.abs(my-bSY)+'px';
 });
-
-canvas.addEventListener('mousemove',function(e){
-  if(!batchSelecting)return;
-  const rect=canvas.getBoundingClientRect();
-  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
-  const x=Math.min(batchStartX,mx),y=Math.min(batchStartY,my);
-  const w=Math.abs(mx-batchStartX),h=Math.abs(my-batchStartY);
-  selRect.style.left=x+'px';selRect.style.top=y+'px';
-  selRect.style.width=w+'px';selRect.style.height=h+'px';
-});
-
-canvas.addEventListener('mouseup',function(e){
-  if(!batchSelecting)return;
-  batchSelecting=false;
-  selRect.style.display='none';
-  
-  const rect=canvas.getBoundingClientRect();
-  const endX=e.clientX-rect.left,endY=e.clientY-rect.top;
-  
-  // Calculate selection box in PDF coordinates
-  const x1=Math.min(batchStartX,endX)/scale;
-  const y1=Math.min(batchStartY,endY)/scale;
-  const x2=Math.max(batchStartX,endX)/scale;
-  const y2=Math.max(batchStartY,endY)/scale;
-  const selW=x2-x1,selH=y2-y1;
-  
-  // Minimum selection size
-  if(selW<10||selH<10)return;
-  
-  const count=parseInt(document.getElementById('batchCount').value)||5;
-  const edge=document.getElementById('batchEdge').value;
-  const size=parseInt(document.getElementById('balloonSize').value);
-  const color=document.getElementById('balloonColor').value;
-  const leader=document.getElementById('leaderStyle').value;
-  const lw=parseFloat(document.getElementById('leaderWidth').value);
-  const font=document.getElementById('balloonFont').value;
-  let num=parseInt(document.getElementById('nextNum').value)||1;
-  
-  // Determine which edge to place balloons
-  let placementEdge=edge;
-  if(edge==='auto'){
-    // Find nearest drawing edge
-    const pageW=canvas.width/scale,pageH=canvas.height/scale;
-    const dTop=y1,dBottom=pageH-y2,dLeft=x1,dRight=pageW-x2;
-    const minD=Math.min(dTop,dBottom,dLeft,dRight);
-    if(minD===dTop)placementEdge='top';
-    else if(minD===dBottom)placementEdge='bottom';
-    else if(minD===dLeft)placementEdge='left';
-    else placementEdge='right';
+cv.addEventListener('mouseup',e=>{
+  if(!bSel)return;bSel=false;sr.style.display='none';
+  const r=cv.getBoundingClientRect();const ex=e.clientX-r.left,ey=e.clientY-r.top;
+  const x1=Math.min(bSX,ex)/sc,y1=Math.min(bSY,ey)/sc,x2=Math.max(bSX,ex)/sc,y2=Math.max(bSY,ey)/sc;
+  const sw=x2-x1,sh=y2-y1;if(sw<10||sh<10)return;
+  const cnt=parseInt(gv('bCount').value)||5;
+  let edge=gv('bEdge').value;
+  const sz=parseInt(gv('bSize').value),col=gv('bCol').value;
+  const ldr=gv('lStyle').value==='ortho'?'line':gv('lStyle').value;
+  const lw=parseFloat(gv('lw').value),font=gv('bFont').value;
+  let num=parseInt(gv('nNum').value)||1;
+  if(edge==='auto'){const ds=[y1,cv.height/sc-y2,x1,cv.width/sc-x2];edge=['top','bottom','left','right'][ds.indexOf(Math.min(...ds))];}
+  const off=sz*1.5;
+  for(let i=0;i<cnt;i++){
+    const t=cnt===1?0.5:i/(cnt-1);let bx,by,tx,ty;
+    if(edge==='top'){bx=x1+sw*0.1+sw*0.8*t;by=y1-off;tx=bx;ty=y1+sh*0.3;}
+    else if(edge==='bottom'){bx=x1+sw*0.1+sw*0.8*t;by=y2+off;tx=bx;ty=y2-sh*0.3;}
+    else if(edge==='left'){bx=x1-off;by=y1+sh*0.1+sh*0.8*t;tx=x1+sw*0.3;ty=by;}
+    else{bx=x2+off;by=y1+sh*0.1+sh*0.8*t;tx=x2-sw*0.3;ty=by;}
+    balls.push({num,px:bx,py:by,tipPx:tx,tipPy:ty,elbX:null,elbY:null,size:sz,color:col,leader:ldr,lw,font,page:pg});num++;
   }
-  
-  // Calculate balloon positions along the edge and leader tip positions inside selection
-  const offset=size*1.5; // distance of balloon from selection edge
-  
-  for(let i=0;i<count;i++){
-    const t=(count===1)?0.5:(i/(count-1)); // 0 to 1 interpolation
-    let bx,by,tx,ty;
-    
-    if(placementEdge==='top'){
-      // Balloons in a row above the selection
-      bx=x1+selW*0.1+selW*0.8*t;
-      by=y1-offset;
-      tx=bx;
-      ty=y1+selH*(0.15+0.7*t/(count||1)); // distribute tips vertically inside
-      ty=y1+selH*0.3; // uniform tip Y
-      tx=x1+selW*0.1+selW*0.8*t; // tips align with balloons horizontally
-    } else if(placementEdge==='bottom'){
-      bx=x1+selW*0.1+selW*0.8*t;
-      by=y2+offset;
-      tx=bx;
-      ty=y2-selH*0.3;
-    } else if(placementEdge==='left'){
-      bx=x1-offset;
-      by=y1+selH*0.1+selH*0.8*t;
-      tx=x1+selW*0.3;
-      ty=by;
-    } else { // right
-      bx=x2+offset;
-      by=y1+selH*0.1+selH*0.8*t;
-      tx=x2-selW*0.3;
-      ty=by;
+  gv('nNum').value=num;renderBalls();updateList();
+});
+
+// ===== MAIN CLICK — 3-click ortho OR single click =====
+cv.addEventListener('click',function(e){
+  if(!placing||batching||!pdf)return;
+  const r=cv.getBoundingClientRect();
+  const cp=c2p(e.clientX-r.left,e.clientY-r.top);
+  const ldr=gv('lStyle').value;
+
+  if(ldr==='ortho'){
+    // --- ORTHO: 3 clicks ---
+    if(oStep===0){
+      // Click 1: set feature tip
+      oTip={x:cp.x,y:cp.y};oMouse={x:cp.x,y:cp.y};
+      oStep=1;updateOBar();drawGhost();
+    } else if(oStep===1){
+      // Click 2: set elbow
+      oElb={x:cp.x,y:cp.y};oMouse={x:cp.x,y:cp.y};
+      oStep=2;updateOBar();drawGhost();
+    } else {
+      // Click 3: place balloon
+      const num=parseInt(gv('nNum').value)||1;
+      const sz=parseInt(gv('bSize').value),col=gv('bCol').value;
+      const lw=parseFloat(gv('lw').value),font=gv('bFont').value;
+      const dx=(cp.x-oElb.x)*sc,dy=(cp.y-oElb.y)*sc;
+      const noElb=Math.sqrt(dx*dx+dy*dy)<8;
+      balls.push({num,px:cp.x,py:cp.y,tipPx:oTip.x,tipPy:oTip.y,
+        elbX:noElb?null:oElb.x,elbY:noElb?null:oElb.y,
+        size:sz,color:col,leader:noElb?'line':'ortho',lw,font,page:pg});
+      gv('nNum').value=num+1;
+      resetO();renderBalls();updateList();
     }
-    
-    balloons.push({num,px:bx,py:by,tipPx:tx,tipPy:ty,size,color,leader,lw,font,page:currentPage});
-    num++;
+    return; // ← always return in ortho mode, never fall through
   }
-  
-  document.getElementById('nextNum').value=num;
-  renderBalloons();updateList();
+
+  // --- NORMAL SINGLE CLICK ---
+  const num=parseInt(gv('nNum').value)||1;
+  const sz=parseInt(gv('bSize').value),col=gv('bCol').value;
+  const lw=parseFloat(gv('lw').value),font=gv('bFont').value;
+  const off=sz*1.2;
+  balls.push({num,px:cp.x+off,py:cp.y-off,tipPx:cp.x,tipPy:cp.y,
+    elbX:null,elbY:null,size:sz,color:col,leader:ldr,lw,font,page:pg});
+  gv('nNum').value=num+1;renderBalls();updateList();
 });
 
-// Click on canvas to place balloon — store in PDF coordinates
-canvas.addEventListener('click',function(e){
-  if(!placeMode||batchMode||!pdfDoc)return;
-  const rect=canvas.getBoundingClientRect();
-  const cx=e.clientX-rect.left;
-  const cy=e.clientY-rect.top;
-  // Convert click to PDF coords
-  const pdf=canvasToPdf(cx,cy);
-  const num=parseInt(document.getElementById('nextNum').value)||1;
-  const size=parseInt(document.getElementById('balloonSize').value);
-  const color=document.getElementById('balloonColor').value;
-  const leader=document.getElementById('leaderStyle').value;
-  const lw=parseFloat(document.getElementById('leaderWidth').value);
-  const font=document.getElementById('balloonFont').value;
-
-  // Offset in PDF points: balloon sits offset from click point
-  // size is in "display pixels at scale=1", so it IS already in PDF points
-  const offsetPdf=size*1.2;
-  balloons.push({
-    num,
-    // All coords stored in PDF points (scale-independent)
-    px:pdf.x+offsetPdf, py:pdf.y-offsetPdf,  // balloon center in PDF pts
-    tipPx:pdf.x, tipPy:pdf.y,                 // leader tip in PDF pts
-    size, color, leader, lw, font,
-    page:currentPage
-  });
-  document.getElementById('nextNum').value=num+1;
-  renderBalloons();updateList();
-});
-
-// ========== RENDER BALLOONS ==========
-// KEY FIX: balloon size is stored in PDF points. Multiply by scale for display.
-// This ensures balloons stay in EXACT position at any zoom level.
-function renderBalloons(){
-  const pageBalloons=balloons.filter(b=>b.page===currentPage);
-  let svg='<defs><marker id="arrowM" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>';
-
-  pageBalloons.forEach((b,i)=>{
-    const idx=balloons.indexOf(b);
-    const sel=idx===selectedBalloon;
-    const strokeW=sel?3:2;
-
-    // Convert stored PDF-point coords → current canvas pixels
-    const cx=b.px*scale;
-    const cy=b.py*scale;
-    const tx=b.tipPx*scale;
-    const ty=b.tipPy*scale;
-
-    // Balloon visual radius: size is in PDF pts, scale to current canvas
-    const r=(b.size/2+2)*scale;
-    const lwPx=Math.max(1,b.lw*scale);
-
-    // Leader line
-    if(b.leader!=='none'){
-      const marker=b.leader==='arrow'?' marker-start="url(#arrowM)"':'';
-      svg+=`<line x1="${tx}" y1="${ty}" x2="${cx}" y2="${cy}" stroke="${b.color}" stroke-width="${lwPx}"${marker} pointer-events="none"/>`;
-      // Leader tip dot (clickable for dragging)
-      svg+=`<circle cx="${tx}" cy="${ty}" r="${Math.max(3,lwPx+1)}" fill="${b.color}" class="leader-tip" data-idx="${idx}" style="pointer-events:all;cursor:crosshair"/>`;
-    }
-
-    // Balloon circle + text
-    const fontSize=b.size*0.65*scale;
-    const numStr=String(b.num);
-    const adjFs=numStr.length>2?fontSize*0.72:numStr.length>1?fontSize*0.85:fontSize;
-    svg+=`<g class="balloon-g" data-idx="${idx}">`;
-    svg+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${b.color}" stroke-width="${strokeW}"/>`;
-    svg+=`<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" fill="${b.color}" font-size="${adjFs}" font-weight="${b.font}" font-family="Outfit,sans-serif" style="pointer-events:none">${b.num}</text>`;
-    svg+=`</g>`;
-  });
-
-  overlay.innerHTML=svg;
-
-  // Attach drag events
-  overlay.querySelectorAll('.balloon-g').forEach(g=>{
-    const idx=parseInt(g.dataset.idx);
-    g.addEventListener('mousedown',e=>{
-      e.stopPropagation();
-      if(!placeMode){
-        isDragging=true;dragIdx=idx;
-        const rect=overlay.getBoundingClientRect();
-        // Store offset in canvas pixels
-        dragOffX=e.clientX-rect.left-balloons[idx].px*scale;
-        dragOffY=e.clientY-rect.top-balloons[idx].py*scale;
-        selectedBalloon=idx;renderBalloons();updateList();
-      }
-    });
-    g.addEventListener('click',e=>{
-      e.stopPropagation();
-      selectedBalloon=idx;renderBalloons();updateList();
-    });
-  });
-
-  overlay.querySelectorAll('.leader-tip').forEach(tip=>{
-    const idx=parseInt(tip.dataset.idx);
-    tip.addEventListener('mousedown',e=>{
-      e.stopPropagation();
-      leaderDragging=true;dragIdx=idx;
-    });
-  });
-
-  document.getElementById('balloonCount').textContent=pageBalloons.length;
-}
-
-// Mouse move — convert canvas pixels to PDF coords for storage
+// ===== MOUSE MOVE — ghost + drag =====
 document.addEventListener('mousemove',e=>{
-  if(!isDragging&&!leaderDragging)return;
-  const rect=overlay.getBoundingClientRect();
-  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
-  if(isDragging&&dragIdx>=0){
-    // Convert from canvas pixels to PDF points
-    balloons[dragIdx].px=(mx-dragOffX)/scale;
-    balloons[dragIdx].py=(my-dragOffY)/scale;
-    renderBalloons();
+  const r=ov.getBoundingClientRect();
+  const mx=e.clientX-r.left,my=e.clientY-r.top;
+  if(placing&&gv('lStyle').value==='ortho'&&oStep>0){
+    oMouse={x:mx/sc,y:my/sc};drawGhost();
   }
-  if(leaderDragging&&dragIdx>=0){
-    balloons[dragIdx].tipPx=mx/scale;
-    balloons[dragIdx].tipPy=my/scale;
-    renderBalloons();
-  }
+  if(dragging&&dIdx>=0){balls[dIdx].px=(mx-dOX)/sc;balls[dIdx].py=(my-dOY)/sc;renderBalls();}
+  if(lDrag&&dIdx>=0){balls[dIdx].tipPx=mx/sc;balls[dIdx].tipPy=my/sc;renderBalls();}
 });
-document.addEventListener('mouseup',()=>{isDragging=false;leaderDragging=false;dragIdx=-1;});
+document.addEventListener('mouseup',()=>{dragging=false;lDrag=false;dIdx=-1;});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')resetO();});
 
-// Touch — store in PDF coords
-canvas.addEventListener('touchstart',function(e){
-  if(!placeMode||!pdfDoc||e.touches.length!==1)return;
-  const t=e.touches[0];const rect=canvas.getBoundingClientRect();
-  const cx=t.clientX-rect.left,cy=t.clientY-rect.top;
-  // Convert to PDF points
-  const pdfX=cx/scale, pdfY=cy/scale;
-  const num=parseInt(document.getElementById('nextNum').value)||1;
-  const size=parseInt(document.getElementById('balloonSize').value);
-  const color=document.getElementById('balloonColor').value;
-  const leader=document.getElementById('leaderStyle').value;
-  const lw=parseFloat(document.getElementById('leaderWidth').value);
-  const font=document.getElementById('balloonFont').value;
-  const offsetPdf=size*1.2;
-  balloons.push({num,px:pdfX+offsetPdf,py:pdfY-offsetPdf,tipPx:pdfX,tipPy:pdfY,size,color,leader,lw,font,page:currentPage});
-  document.getElementById('nextNum').value=num+1;
-  renderBalloons();updateList();
+// Touch (single-click only — no ortho on touch)
+cv.addEventListener('touchstart',e=>{
+  if(!placing||!pdf||e.touches.length!==1)return;
+  const t=e.touches[0],r=cv.getBoundingClientRect();
+  const cp=c2p(t.clientX-r.left,t.clientY-r.top);
+  const num=parseInt(gv('nNum').value)||1,sz=parseInt(gv('bSize').value);
+  const col=gv('bCol').value,ldr=gv('lStyle').value==='ortho'?'line':gv('lStyle').value;
+  const lw=parseFloat(gv('lw').value),font=gv('bFont').value,off=sz*1.2;
+  balls.push({num,px:cp.x+off,py:cp.y-off,tipPx:cp.x,tipPy:cp.y,elbX:null,elbY:null,size:sz,color:col,leader:ldr,lw,font,page:pg});
+  gv('nNum').value=num+1;renderBalls();updateList();
 },{passive:true});
 
-// ========== BALLOON LIST ==========
+// ===== RENDER =====
+function renderBalls(){
+  const pb=balls.filter(b=>b.page===pg);
+  let svg=`<defs><marker id="arM" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`;
+  pb.forEach(b=>{
+    const idx=balls.indexOf(b),sel=idx===selB;
+    const cx=b.px*sc,cy=b.py*sc,tx=b.tipPx*sc,ty=b.tipPy*sc;
+    const r=(b.size/2+2)*sc,lw=Math.max(1,b.lw*sc);
+    if(b.leader!=='none'){
+      if(b.leader==='ortho'&&b.elbX!=null){
+        const ex=b.elbX*sc,ey=b.elbY*sc;
+        svg+=`<path d="M${tx},${ty} L${ex},${ey} L${cx},${cy}" fill="none" stroke="${b.color}" stroke-width="${lw}" pointer-events="none"/>`;
+      } else {
+        const mk=b.leader==='arrow'?' marker-start="url(#arM)"':'';
+        svg+=`<line x1="${tx}" y1="${ty}" x2="${cx}" y2="${cy}" stroke="${b.color}" stroke-width="${lw}"${mk} pointer-events="none"/>`;
+      }
+      svg+=`<circle cx="${tx}" cy="${ty}" r="${Math.max(3,lw+1)}" fill="${b.color}" class="lt" data-i="${idx}" style="pointer-events:all;cursor:crosshair"/>`;
+    }
+    const fs=b.size*0.65*sc,ns=String(b.num);
+    const afs=ns.length>2?fs*0.72:ns.length>1?fs*0.85:fs;
+    svg+=`<g class="bg" data-i="${idx}">`;
+    svg+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${b.color}" stroke-width="${sel?3:2}"/>`;
+    svg+=`<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" fill="${b.color}" font-size="${afs}" font-weight="${b.font}" font-family="Outfit,sans-serif" style="pointer-events:none">${b.num}</text>`;
+    svg+=`</g>`;
+  });
+  ov.innerHTML=svg;
+  ov.querySelectorAll('.bg').forEach(g=>{
+    const idx=parseInt(g.dataset.i);
+    g.addEventListener('mousedown',e=>{
+      e.stopPropagation();
+      if(!placing){
+        dragging=true;dIdx=idx;
+        const r=ov.getBoundingClientRect();
+        dOX=e.clientX-r.left-balls[idx].px*sc;dOY=e.clientY-r.top-balls[idx].py*sc;
+        selB=idx;renderBalls();updateList();
+      }
+    });
+    g.addEventListener('click',e=>{e.stopPropagation();selB=idx;renderBalls();updateList();});
+  });
+  ov.querySelectorAll('.lt').forEach(t=>{
+    const idx=parseInt(t.dataset.i);
+    t.addEventListener('mousedown',e=>{e.stopPropagation();lDrag=true;dIdx=idx;});
+  });
+  gv('bCount2').textContent=pb.length;
+}
+
 function updateList(){
-  const list=document.getElementById('balloonList');
-  const pageBalloons=balloons.filter(b=>b.page===currentPage);
-  if(!pageBalloons.length){list.innerHTML='<div style="font-size:11px;color:var(--txd);padding:10px 0;text-align:center">No balloons on this page</div>';return;}
-  list.innerHTML=pageBalloons.map(b=>{
-    const idx=balloons.indexOf(b);
-    return `<div class="bl-item${idx===selectedBalloon?' selected':''}" onclick="selectBalloon(${idx})">
-      <div class="bl-num" style="background:${b.color}">${b.num}</div>
-      <span class="bl-text">Balloon #${b.num}</span>
-      <div class="bl-del" onclick="event.stopPropagation();deleteBalloon(${idx})">×</div>
+  const list=gv('bList'),pb=balls.filter(b=>b.page===pg);
+  if(!pb.length){list.innerHTML='<div style="font-size:11px;color:var(--txd);padding:10px 0;text-align:center">No balloons on this page</div>';return;}
+  list.innerHTML=pb.map(b=>{
+    const idx=balls.indexOf(b);
+    return `<div class="bi${idx===selB?' sel':''}" onclick="selBall(${idx})">
+      <div class="bn" style="background:${b.color}">${b.num}</div>
+      <span class="bt">Balloon #${b.num}</span>
+      <div class="bd" onclick="event.stopPropagation();delBall(${idx})">×</div>
     </div>`;
   }).join('');
 }
+function selBall(i){selB=i;renderBalls();updateList();}
+function delBall(i){balls.splice(i,1);if(selB>=balls.length)selB=-1;renderBalls();updateList();}
+function clearAll(){if(confirm('Clear all balloons on all pages?')){balls=[];selB=-1;renderBalls();updateList();}}
 
-function selectBalloon(idx){selectedBalloon=idx;renderBalloons();updateList();}
-function deleteBalloon(idx){
-  balloons.splice(idx,1);
-  if(selectedBalloon>=balloons.length)selectedBalloon=-1;
-  if(selectedBalloon===idx)selectedBalloon=-1;
-  renderBalloons();updateList();
-}
-function clearAll(){if(confirm('Clear all balloons on all pages?')){balloons=[];selectedBalloon=-1;renderBalloons();updateList();}}
-
-// ========== EXPORT PDF ==========
-// Pre-load pdf-lib
-const pdfLibScript=document.createElement('script');
-pdfLibScript.src='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
-document.head.appendChild(pdfLibScript);
-
+// ===== EXPORT =====
+const ps=document.createElement('script');ps.src='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';document.head.appendChild(ps);
 async function exportPDF(){
-  if(!pdfDoc||!window.PDFLib){alert('PDF library still loading, try again in a moment.');return;}
+  if(!pdf||!window.PDFLib){alert('PDF library loading, try again in a moment.');return;}
   try{
-    // Get original PDF bytes from pdfjs
-    const existingPdfBytes=await pdfDoc.getData();
-    const pdfDocLib=await PDFLib.PDFDocument.load(existingPdfBytes);
-    const pages=pdfDocLib.getPages();
-    const font=await pdfDocLib.embedFont(PDFLib.StandardFonts.HelveticaBold);
-
-    for(const b of balloons){
+    const bytes=await pdf.getData();
+    const doc=await PDFLib.PDFDocument.load(bytes);
+    const pages=doc.getPages();
+    const font=await doc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    for(const b of balls){
       if(b.page<1||b.page>pages.length)continue;
-      const pg=pages[b.page-1];
-      const {height}=pg.getSize();
-
-      // Balloon coords are in PDF points (same as pdf-lib's coordinate system)
-      // Only need to flip Y: pdf-lib Y goes bottom-up, our Y goes top-down
-      const bx=b.px;
-      const by=height-b.py;
-      const tx=b.tipPx;
-      const ty=height-b.tipPy;
-      const r=b.size/2+2;
-      const col=hexToRgb(b.color);
-      const pdfColor=PDFLib.rgb(col.r,col.g,col.b);
-
-      // Draw leader line
+      const p=pages[b.page-1];const {height:h}=p.getSize();
+      const bx=b.px,by=h-b.py,tx=b.tipPx,ty=h-b.tipPy;
+      const r=b.size/2+2,c=hRgb(b.color);
+      const col=PDFLib.rgb(c.r,c.g,c.b);
       if(b.leader!=='none'){
-        pg.drawLine({start:{x:tx,y:ty},end:{x:bx,y:by},thickness:b.lw,color:pdfColor});
-        // Leader tip dot
-        pg.drawCircle({x:tx,y:ty,size:Math.max(2,b.lw),color:pdfColor});
+        if(b.leader==='ortho'&&b.elbX!=null){
+          const ex=b.elbX,ey=h-b.elbY;
+          p.drawLine({start:{x:tx,y:ty},end:{x:ex,y:ey},thickness:b.lw,color:col});
+          p.drawLine({start:{x:ex,y:ey},end:{x:bx,y:by},thickness:b.lw,color:col});
+        } else {
+          p.drawLine({start:{x:tx,y:ty},end:{x:bx,y:by},thickness:b.lw,color:col});
+        }
+        p.drawCircle({x:tx,y:ty,size:Math.max(2,b.lw),color:col});
       }
-
-      // Draw white filled circle with colored border
-      pg.drawCircle({x:bx,y:by,size:r,color:PDFLib.rgb(1,1,1),borderColor:pdfColor,borderWidth:2,opacity:1});
-
-      // Draw number text
-      const numStr=String(b.num);
-      const fontSize=b.size*0.55;
-      const textWidth=font.widthOfTextAtSize(numStr,fontSize);
-      pg.drawText(numStr,{
-        x:bx-textWidth/2,
-        y:by-fontSize*0.35,
-        size:fontSize,
-        font:font,
-        color:pdfColor
-      });
+      p.drawCircle({x:bx,y:by,size:r,color:PDFLib.rgb(1,1,1),borderColor:col,borderWidth:2});
+      const ns=String(b.num),fs=b.size*0.55,tw=font.widthOfTextAtSize(ns,fs);
+      p.drawText(ns,{x:bx-tw/2,y:by-fs*0.35,size:fs,font,color:col});
     }
-
-    const pdfBytes=await pdfDocLib.save();
-    const blob=new Blob([pdfBytes],{type:'application/pdf'});
+    const out=await doc.save();
     const a=document.createElement('a');a.download='ballooned-drawing.pdf';
-    a.href=URL.createObjectURL(blob);a.click();URL.revokeObjectURL(a.href);
-  }catch(err){
-    console.error('Export error:',err);
-    alert('Export failed: '+err.message);
-  }
+    a.href=URL.createObjectURL(new Blob([out],{type:'application/pdf'}));a.click();URL.revokeObjectURL(a.href);
+  }catch(e){console.error(e);alert('Export failed: '+e.message);}
 }
+function hRgb(h){return{r:parseInt(h.slice(1,3),16)/255,g:parseInt(h.slice(3,5),16)/255,b:parseInt(h.slice(5,7),16)/255};}
 
-function hexToRgb(hex){
-  const r=parseInt(hex.slice(1,3),16)/255;
-  const g=parseInt(hex.slice(3,5),16)/255;
-  const b=parseInt(hex.slice(5,7),16)/255;
-  return{r,g,b};
-}
-
-togglePlaceMode();
+// ===== INIT =====
+setPlace();
 </script>
 </body>
 </html>
