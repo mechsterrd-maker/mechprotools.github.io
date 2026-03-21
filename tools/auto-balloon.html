@@ -242,10 +242,16 @@ async function handleFile(f) {
 async function loadPDF(buf) {
   const pdf = await pdfjsLib.getDocument({data: buf}).promise;
   const pg  = await pdf.getPage(1);
+  // Get natural page dimensions (scale=1)
+  const vpNat = pg.getViewport({scale: 1.0});
+  // Render at 3x for display quality
   const vp  = pg.getViewport({scale: 3.0});
   const oc  = document.createElement('canvas');
   oc.width=vp.width; oc.height=vp.height;
   await pg.render({canvasContext: oc.getContext('2d'), viewport: vp}).promise;
+  // Store natural dimensions for API (Document AI works from PDF directly)
+  window._pdfNatW = Math.round(vpNat.width);
+  window._pdfNatH = Math.round(vpNat.height);
   setupWork(oc);
 }
 
@@ -669,22 +675,27 @@ async function processDrawing() {
   showP(true); setP(10,'Sending to Layout Parser...');
 
   try {
-    // Compress drawing to max 1500px wide before sending
-    // This keeps request under 2MB — avoids Google's 10MB limit rejection
-    setP(20,'Compressing drawing for upload...');
-    const compressed = await compressForAPI(workCanvas);
-    const b64 = compressed.b64;
-    const apiW = compressed.w;
-    const apiH = compressed.h;
-    console.log('Compressed size:', Math.round(b64.length/1024)+'KB');
+    // Send ORIGINAL file bytes to Layout Parser
+    // Layout Parser requires PDF — not JPEG
+    setP(20,'Preparing file for upload...');
+    const safe  = rawBytes.slice(0);
+    const bytes = new Uint8Array(safe);
+    let bin='';
+    for(let i=0;i<bytes.length;i+=8192)
+      bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+8192,bytes.length)));
+    const b64 = btoa(bin);
+    console.log('File size:', Math.round(b64.length/1024)+'KB', 'mime:', rawMime);
 
     setP(35,'Document AI reading dimensions...');
-    // Send as text/plain to avoid CORS preflight OPTIONS request
-    // text/plain is a "simple request" — no preflight needed
     const resp = await fetch(cfUrl, {
       method:'POST',
-      headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({image_b64:b64, mime_type:'image/jpeg', img_width:W, img_height:H})
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        image_b64:  b64,
+        mime_type:  rawMime,   // 'application/pdf' for PDFs — Layout Parser accepts PDF
+        img_width:  W,
+        img_height: H
+      })
     });
     if(!resp.ok) {
       const e=await resp.json().catch(()=>({error:'Server error '+resp.status}));
