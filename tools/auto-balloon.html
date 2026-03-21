@@ -640,6 +640,23 @@ function placeOnClick(dx,dy) {
   }
 }
 
+// ── COMPRESS FOR API ───────────────────────────────────────────────────────
+// Resize drawing to max 1500px and convert to JPEG
+// Keeps request under 2MB so Google Cloud accepts it
+async function compressForAPI(srcCanvas) {
+  const MAX = 1500;
+  let w = srcCanvas.width, h = srcCanvas.height;
+  if(w > MAX) { const r=MAX/w; w=MAX; h=Math.round(h*r); }
+  const tmp = document.createElement('canvas');
+  tmp.width=w; tmp.height=h;
+  tmp.getContext('2d').drawImage(srcCanvas, 0, 0, w, h);
+  // JPEG at 85% quality
+  const dataUrl = tmp.toDataURL('image/jpeg', 0.85);
+  const b64 = dataUrl.split(',')[1];
+  console.log(`API image: ${w}x${h}, ${Math.round(b64.length/1024)}KB`);
+  return {b64, w, h};
+}
+
 // ── PROCESS DRAWING ────────────────────────────────────────────────────────
 async function processDrawing() {
   const cfUrl = document.getElementById('cfUrl').value.trim();
@@ -652,18 +669,22 @@ async function processDrawing() {
   showP(true); setP(10,'Sending to Layout Parser...');
 
   try {
-    const safe  = rawBytes.slice(0);
-    const bytes = new Uint8Array(safe);
-    let bin='';
-    for(let i=0;i<bytes.length;i+=8192)
-      bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+8192,bytes.length)));
-    const b64=btoa(bin);
+    // Compress drawing to max 1500px wide before sending
+    // This keeps request under 2MB — avoids Google's 10MB limit rejection
+    setP(20,'Compressing drawing for upload...');
+    const compressed = await compressForAPI(workCanvas);
+    const b64 = compressed.b64;
+    const apiW = compressed.w;
+    const apiH = compressed.h;
+    console.log('Compressed size:', Math.round(b64.length/1024)+'KB');
 
     setP(35,'Document AI reading dimensions...');
+    // Send as text/plain to avoid CORS preflight OPTIONS request
+    // text/plain is a "simple request" — no preflight needed
     const resp = await fetch(cfUrl, {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({image_b64:b64, mime_type:rawMime, img_width:W, img_height:H})
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({image_b64:b64, mime_type:'image/jpeg', img_width:W, img_height:H})
     });
     if(!resp.ok) {
       const e=await resp.json().catch(()=>({error:'Server error '+resp.status}));
