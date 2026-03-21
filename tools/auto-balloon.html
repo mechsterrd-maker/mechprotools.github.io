@@ -687,12 +687,13 @@ async function processDrawing() {
     console.log('File size:', Math.round(b64.length/1024)+'KB', 'mime:', rawMime);
 
     setP(35,'Document AI reading dimensions...');
+    // Use text/plain to avoid CORS preflight — browser sends POST directly
     const resp = await fetch(cfUrl, {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({
         image_b64:  b64,
-        mime_type:  rawMime,   // 'application/pdf' for PDFs — Layout Parser accepts PDF
+        mime_type:  rawMime,
         img_width:  W,
         img_height: H
       })
