@@ -81,12 +81,11 @@ input.inp:focus{border-color:var(--acc)}
 <div class="sb">
 
   <div class="ss">
-    <h3>Google API Key</h3>
-    <input class="inp" id="apiKey" type="password"
-      placeholder="AIzaSy...">
-    <div style="font-size:11px;color:#888;margin-top:3px">
-      Get from console.cloud.google.com → APIs → Credentials
-    </div>
+    <h3>Document AI Endpoint</h3>
+    <input class="inp" id="cfUrl" type="text"
+      value="https://us-central1-prime-micron-480206-j3.cloudfunctions.net/mechprotools-process"
+      placeholder="https://...cloudfunctions.net/mechprotools-process">
+    <div style="font-size:11px;color:#888;margin-top:3px">Layout Parser — pre-configured</div>
   </div>
 
   <div class="ss">
@@ -235,25 +234,18 @@ async function handleFile(f) {
     if(rawMime === 'application/pdf') await loadPDF(orig.slice(0));
     else                              await loadIMG(orig.slice(0), rawMime);
     showP(false);
-    const hasKey = !!document.getElementById('apiKey').value.trim();
-    document.getElementById('procBtn').disabled = !hasKey;
-    toast('Drawing loaded — enter API key then click ⚡ Process Drawing');
+    document.getElementById('procBtn').disabled = false;
+    toast('Drawing loaded — click ⚡ Process Drawing');
   } catch(e) { showP(false); toast('Load error: '+e.message); console.error(e); }
 }
 
 async function loadPDF(buf) {
   const pdf = await pdfjsLib.getDocument({data: buf}).promise;
   const pg  = await pdf.getPage(1);
-  // Get natural page dimensions (scale=1)
-  const vpNat = pg.getViewport({scale: 1.0});
-  // Render at 3x for display quality
   const vp  = pg.getViewport({scale: 3.0});
   const oc  = document.createElement('canvas');
   oc.width=vp.width; oc.height=vp.height;
   await pg.render({canvasContext: oc.getContext('2d'), viewport: vp}).promise;
-  // Store natural dimensions for API (Document AI works from PDF directly)
-  window._pdfNatW = Math.round(vpNat.width);
-  window._pdfNatH = Math.round(vpNat.height);
   setupWork(oc);
 }
 
@@ -665,163 +657,59 @@ async function compressForAPI(srcCanvas) {
   return {b64, w, h};
 }
 
-// ── PROCESS DRAWING — Direct Document AI REST API (no server needed) ────────
+// ── PROCESS DRAWING ────────────────────────────────────────────────────────
 async function processDrawing() {
-  const apiKey = document.getElementById('apiKey').value.trim();
-  if(!apiKey)   { toast('Enter your Google API Key first'); return; }
-  if(!rawBytes) { toast('Upload a drawing first');          return; }
+  const cfUrl = document.getElementById('cfUrl').value.trim();
+  if(!cfUrl)    { toast('Enter Cloud Function URL'); return; }
+  if(!rawBytes) { toast('Upload a drawing first');   return; }
 
   document.getElementById('procBtn').disabled = true;
   document.getElementById('procSpin').className = 'spin on';
   document.getElementById('procTxt').textContent = 'Processing...';
-  showP(true); setP(10,'Sending to Document AI...');
+  showP(true); setP(10,'Sending to Layout Parser...');
 
   try {
-    const safe  = rawBytes.slice(0);
-    const bytes = new Uint8Array(safe);
-    let bin='';
-    for(let i=0;i<bytes.length;i+=8192)
-      bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+8192,bytes.length)));
-    const b64 = btoa(bin);
+    // Compress drawing to max 1500px wide before sending
+    // This keeps request under 2MB — avoids Google's 10MB limit rejection
+    setP(20,'Compressing drawing for upload...');
+    const compressed = await compressForAPI(workCanvas);
+    const b64 = compressed.b64;
+    const apiW = compressed.w;
+    const apiH = compressed.h;
+    console.log('Compressed size:', Math.round(b64.length/1024)+'KB');
 
-    setP(30,'Layout Parser reading drawing...');
-
-    // Direct REST API call — no Cloud Function, no CORS issues
-    const PROJECT   = 'prime-micron-480206-j3';
-    const LOCATION  = 'us';
-    const PROCESSOR = '8ddeeb4a68cbfc38';
-    const url = `https://${LOCATION}-documentai.googleapis.com/v1/projects/${PROJECT}/locations/${LOCATION}/processors/${PROCESSOR}:process?key=${apiKey}`;
-
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        rawDocument: { content: b64, mimeType: rawMime }
-      })
+    setP(35,'Document AI reading dimensions...');
+    // Send as text/plain to avoid CORS preflight OPTIONS request
+    // text/plain is a "simple request" — no preflight needed
+    const resp = await fetch(cfUrl, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({image_b64:b64, mime_type:'image/jpeg', img_width:W, img_height:H})
     });
-
     if(!resp.ok) {
-      const e = await resp.json().catch(()=>({error:{message:'API error '+resp.status}}));
-      throw new Error(e.error?.message || 'Document AI error '+resp.status);
+      const e=await resp.json().catch(()=>({error:'Server error '+resp.status}));
+      throw new Error(e.error||'HTTP '+resp.status);
     }
+    const data = await resp.json();
+    if(!data.success) throw new Error(data.error||'Processing failed');
 
-    setP(70,'Parsing dimensions...');
-    const result = await resp.json();
-    allDims = parseDocAI(result.document, W, H);
-
-    setP(100,`Found ${allDims.length} dimensions!`);
-    setTimeout(()=>showP(false),1200);
-    document.getElementById('dimCount').textContent = allDims.length+' dims loaded';
+    allDims = data.dimensions || [];
+    setP(100, `Found ${allDims.length} dimensions — draw boxes!`);
+    setTimeout(()=>showP(false), 1200);
+    document.getElementById('dimCount').textContent = `${allDims.length} dims loaded`;
     document.getElementById('statsDiv').style.display = 'block';
     updateStats();
-    toast(`✓ ${allDims.length} dimensions loaded — draw boxes!`);
-
+    toast(`✓ ${allDims.length} dimensions loaded — draw boxes on each section`);
   } catch(e) {
     showP(false);
     toast('Error: '+e.message);
     console.error(e);
   }
+
   document.getElementById('procBtn').disabled = false;
   document.getElementById('procSpin').className = 'spin';
   document.getElementById('procTxt').textContent = '⚡ Process Drawing';
 }
-
-// ── PARSE DOCUMENT AI RESPONSE ─────────────────────────────────────────────
-function parseDocAI(doc, imgW, imgH) {
-  if(!doc||!doc.pages||!doc.pages.length) return [];
-  const page = doc.pages[0];
-  const dw   = page.dimension ? page.dimension.width  : imgW;
-  const dh   = page.dimension ? page.dimension.height : imgH;
-  const sx   = imgW/dw, sy = imgH/dh;
-  const txt  = doc.text||'';
-
-  const KNOWN_BAD = new Set(['600','002','1490','246','10719','04701','13343',
-    '12500','12417','10001','9816','6272','9488','9095','13700']);
-  const EXCL = ['section','view','detail','scale','sheet','drawing','revision',
-    'approved','checked','drawn','date','unless','otherwise','specified',
-    'all dimensions','third angle','first angle','chennai','simpson',
-    'pressure die','casting to','treatment','material','form','part no',
-    'pattern','simpsons','must appear','machined angular','hole centres',
-    'pitch circle','if in doubt','remove all burrs','sharp corners',
-    'processing residue','drawing not to be','amendment','property of',
-    'confidential','first used on','computed weight','note:'];
-
-  function isDim(s) {
-    s=s.trim().replace(/\n/g,' ');
-    if(!/[0-9]/.test(s)||s.length>22) return false;
-    if(/^\d{2}\.\d{2}\.\d{4}$/.test(s)) return false;
-    if(/^[A-Z]\d{4,}/.test(s)) return false;
-    if(/^\d{1,2}$/.test(s)&&parseInt(s)<=16) return false;
-    if(KNOWN_BAD.has(s)) return false;
-    const sl=s.toLowerCase();
-    if(EXCL.some(k=>sl.includes(k))) return false;
-    if(/^\d+\.\d+$/.test(s)) return true;
-    if(/^[OoRr\u00d8\u00f8]\d/.test(s)) return true;
-    if(/^\d+\.?\d*\s*[°]/.test(s)) return true;
-    if(/^\d+\.?\d*\s*(MAX|MIN|TYP|DEEP)/i.test(s)) return true;
-    if(/^M\d+\s*[xX]/.test(s)) return true;
-    if(/^0\.\d+/.test(s)) return true;
-    if(s.includes('±')&&/[0-9]/.test(s)) return true;
-    if(/^\d+\.?\d*\s*g\b/i.test(s)) return true;
-    return false;
-  }
-
-  function classify(s) {
-    const t=s.toUpperCase();
-    if(/^[O\u00d8\u00f8]/.test(s)) return 'diameter';
-    if(/^[Rr]\d/.test(s)) return 'radius';
-    if(/°/.test(s)) return 'angle';
-    if(/^M\d/.test(s)||t.includes('TAP')) return 'thread';
-    if(s.includes('±')) return 'tolerance';
-    if(/(MAX|MIN|TYP)/.test(t)) return 'note';
-    return 'linear';
-  }
-
-  function bb(verts) {
-    if(!verts||!verts.length) return null;
-    const xs=verts.map(v=>v.x||0),ys=verts.map(v=>v.y||0);
-    const x=Math.min(...xs)*dw*sx, y=Math.min(...ys)*dh*sy;
-    const w=(Math.max(...xs)-Math.min(...xs))*dw*sx;
-    const h=(Math.max(...ys)-Math.min(...ys))*dh*sy;
-    return {x:Math.round(x),y:Math.round(y),
-            w:Math.max(Math.round(w),20),h:Math.max(Math.round(h),16),
-            cx:Math.round(x+w/2),cy:Math.round(y+h/2)};
-  }
-
-  function getT(layout) {
-    if(!layout||!layout.textAnchor||!layout.textAnchor.textSegments) return '';
-    return layout.textAnchor.textSegments
-      .map(s=>txt.slice(s.startIndex||0,s.endIndex||0))
-      .join('').trim().replace(/\n/g,' ');
-  }
-
-  const items=[], seen=new Set();
-  function add(t,b,conf) {
-    if(!b) return;
-    const {cx,cy}=b;
-    if(cy<imgH*.065||cy>imgH*.885||cx<imgW*.09) return;
-    if(cy<imgH*.10&&cx>imgW*.25) return;
-    if(!isDim(t)) return;
-    const dk=t.replace(/[^0-9RrOo°.]/g,'').slice(0,6)+'_'+Math.round(cx/200)+'_'+Math.round(cy/200);
-    if(seen.has(dk)) return; seen.add(dk);
-    items.push({text:t,type:classify(t),cx:b.cx,cy:b.cy,
-      x:b.x,y:b.y,w:b.w,h:b.h,confidence:Math.round((conf||.9)*1000)/1000});
-  }
-
-  for(const src of [page.paragraphs,page.tokens,page.blocks]) {
-    if(!src) continue;
-    for(const item of src) {
-      const t=getT(item.layout);
-      const b=bb(item.layout&&item.layout.boundingPoly&&item.layout.boundingPoly.normalizedVertices);
-      if(t) add(t,b,item.layout&&item.layout.confidence||.9);
-    }
-  }
-
-  items.sort((a,b2)=>(Math.floor(a.cy/150)*10000+a.cx)-(Math.floor(b2.cy/150)*10000+b2.cx));
-  items.forEach((d,i)=>d.id=i+1);
-  return items;
-}
-
 
 // ── EXPORT PDF ─────────────────────────────────────────────────────────────
 function exportPDF() {
@@ -902,7 +790,7 @@ function clearFile() {
   document.getElementById('blist').innerHTML='';
   document.getElementById('bc').textContent='0';
   document.getElementById('dimCount').textContent='0 dims loaded';
-  document.getElementById('procBtn').disabled=!document.getElementById('apiKey').value.trim();
+  document.getElementById('procBtn').disabled=true;
   ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
@@ -935,11 +823,6 @@ function toast(msg) {
 }
 
 window.addEventListener('resize',()=>{if(workCanvas)render();});
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('apiKey').addEventListener('input', function(){
-    document.getElementById('procBtn').disabled = !this.value.trim() || !rawBytes;
-  });
-});
 </script>
 </body>
 </html>
