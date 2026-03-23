@@ -1028,10 +1028,10 @@ If truly no missed dimensions, return []. But be thorough — engineering drawin
             const fullX=Math.round(d.cx*scaleBack);
             const fullY=Math.round(d.cy*scaleBack);
             if(blankMap && fullX>0 && fullY>0 && fullX<W && fullY<H){
-              const checkR=Math.round(PX_PER_MM*5); // 5mm radius check
+              const checkR=Math.round(PX_PER_MM*8); // 8mm radius — wider search for nearby content
               let blankCount=0,totalCount=0;
-              for(let dy=-checkR;dy<=checkR;dy+=4){
-                for(let dx=-checkR;dx<=checkR;dx+=4){
+              for(let dy=-checkR;dy<=checkR;dy+=5){
+                for(let dx=-checkR;dx<=checkR;dx+=5){
                   const px=fullX+dx,py=fullY+dy;
                   if(px>=0&&px<W&&py>=0&&py<H){
                     totalCount++;
@@ -1040,7 +1040,7 @@ If truly no missed dimensions, return []. But be thorough — engineering drawin
                 }
               }
               const blankPct=totalCount>0?blankCount/totalCount:1;
-              if(blankPct>0.85){
+              if(blankPct>0.92){
                 console.log(`Rejected Claude dim "${d.text}" at (${d.cx},${d.cy})→full(${fullX},${fullY}) — ${Math.round(blankPct*100)}% blank`);
                 return false;
               }
@@ -1261,9 +1261,11 @@ function balloonAll(){
   
   boxCount++;
   render();updateList();updateStats();
-  toast(`✓ ${ok} balloons placed on remaining dimensions${failed?` (${failed} no space)`:''}`);}
+  toast(`✓ ${ok} balloons placed on remaining dimensions${failed?` (${failed} no space)`:''}`);
+}
 
-
+// ── DELETE BALLOON ────────────────────────────────────────────────────────
+function deleteBalloon(idx) {
   if(idx<0||idx>=balloons.length) return;
   balloons.splice(idx,1);
   render(); updateList(); updateStats();
