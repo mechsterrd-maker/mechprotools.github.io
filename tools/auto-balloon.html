@@ -1230,25 +1230,30 @@ async function exportFAI() {
     try{
       // Create image WITH balloons drawn on it so Claude can see exactly what each balloon points to
       const tmp=document.createElement('canvas');
-      const maxW=2000;
+      const maxW=2500;
       const ratio=Math.min(maxW/W,1);
       tmp.width=Math.round(W*ratio);tmp.height=Math.round(H*ratio);
       const tc=tmp.getContext('2d');
       tc.drawImage(workCanvas,0,0,tmp.width,tmp.height);
-      // Draw balloons on the image
+      // Draw balloons on the image — LARGE and CLEAR for Claude to read
       const pageBals=sorted.filter(b=>(b.page||1)===currentPage);
+      const bRad=22; // Big radius so Claude can read numbers
       pageBals.forEach(b=>{
         const sx=b.bx*ratio,sy=b.by*ratio,tx=b.tipx*ratio,ty=b.tipy*ratio;
-        tc.strokeStyle='#0A1EA0';tc.lineWidth=2;
+        // Thick leader line
+        tc.strokeStyle='#0000CC';tc.lineWidth=3;
         tc.beginPath();tc.moveTo(tx,ty);tc.lineTo(sx,sy);tc.stroke();
-        tc.fillStyle='#fff';tc.beginPath();tc.arc(sx,sy,14,0,Math.PI*2);tc.fill();
-        tc.strokeStyle='#0A1EA0';tc.lineWidth=2;tc.beginPath();tc.arc(sx,sy,14,0,Math.PI*2);tc.stroke();
-        tc.fillStyle='#0A1EA0';tc.font='bold 12px sans-serif';tc.textAlign='center';tc.textBaseline='middle';
-        tc.fillText(String(b.num),sx,sy);
+        // White filled circle with thick blue border
+        tc.fillStyle='#FFFFFF';tc.beginPath();tc.arc(sx,sy,bRad,0,Math.PI*2);tc.fill();
+        tc.strokeStyle='#0000CC';tc.lineWidth=3;tc.beginPath();tc.arc(sx,sy,bRad,0,Math.PI*2);tc.stroke();
+        // Bold number — large enough to read
+        tc.fillStyle='#0000CC';tc.font='bold 18px Arial';tc.textAlign='center';tc.textBaseline='middle';
+        tc.fillText(String(b.num),sx,sy+1);
       });
-      const imgB64=tmp.toDataURL('image/jpeg',0.8).split(',')[1];
+      const imgB64=tmp.toDataURL('image/jpeg',0.85).split(',')[1];
       
-      // Build balloon position list for AI
+      // Build text hints from detected dimensions for each balloon
+      const balloonHints=pageBals.map(b=>`Balloon #${b.num}: OCR detected text="${b.text||'unknown'}", type=${b.type||'unknown'}`).join('\n');
       const imgB64Ready=imgB64;
       
       const resp=await fetch('https://api.anthropic.com/v1/messages',{
@@ -1261,7 +1266,10 @@ async function exportFAI() {
             {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
             {type:'text',text:`You are a SENIOR QUALITY ENGINEER performing First Article Inspection (FAI) per AS9102. This engineering drawing has NUMBERED BALLOONS (blue circles with numbers and leader lines pointing to dimensions).
 
-YOUR TASK: For EACH balloon number visible in the image, identify the EXACT dimension or feature its leader arrow points to. The arrow TIP shows the feature being inspected.
+OCR DETECTED TEXT for each balloon (use as hints — verify against the image):
+${balloonHints}
+
+YOUR TASK: For EACH balloon number visible in the image, identify the EXACT dimension or feature its leader arrow points to. The arrow TIP shows the feature being inspected. Use the OCR hints above to help, but VERIFY by looking at the actual drawing.
 
 For each balloon provide a JSON object with:
 - "num": balloon number (integer matching what's shown in the blue circle)
@@ -1376,15 +1384,18 @@ select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11p
   sorted.forEach(b=>{
     // Get AI data for this balloon if available
     const ai=aiData?aiData.find(a=>a.num===b.num):null;
-    const dim=ai?ai.dimension:(b.text||'?');
-    const type=ai?ai.type:(b.type||'linear');
-    const nom=ai?ai.nominal:(b.text||'');
-    const tp=ai?(ai.tol_plus||''):'';
-    const tm=ai?(ai.tol_minus||''):'';
-    const datum=ai?(ai.datum||''):'';
-    const method=ai?(ai.inspection_method||''):'';
-    const notes=ai?[ai.notes||'',ai.tol_class?'Class: '+ai.tol_class:''].filter(Boolean).join('; '):'';
-    
+    // Get AI data for this balloon if available — fallback to OCR text if AI returns "?"
+    const ai=aiData?aiData.find(a=>a.num===b.num):null;
+    const aiDim=ai?ai.dimension:null;
+    const hasAI=aiDim && aiDim!=='?' && aiDim!=='VERIFY' && aiDim!=='unknown';
+    const dim=hasAI?aiDim:(b.text||'?');
+    const type=hasAI?(ai.type||'linear'):(b.type||'linear');
+    const nom=hasAI?(ai.nominal||aiDim):(b.text||'');
+    const tp=hasAI?(ai.tol_plus||''):'';
+    const tm=hasAI?(ai.tol_minus||''):'';
+    const datum=hasAI?(ai.datum||''):'';
+    const method=hasAI?(ai.inspection_method||''):'';
+    const notes=hasAI?[ai.notes||'',ai.tol_class?'Class: '+ai.tol_class:''].filter(Boolean).join('; '):(hasAI?'':'');    
     html+=`<tr>
   <td style="text-align:center"><div class="bal-num">${b.num}</div></td>
   <td><div class="editable" contenteditable="true">${dim}</div></td>
