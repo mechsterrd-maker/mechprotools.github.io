@@ -829,36 +829,83 @@ async function processDrawing() {
           },
           body:JSON.stringify({
             model:'claude-sonnet-4-20250514',
-            max_tokens:4000,
+            max_tokens:8000,
             messages:[{role:'user',content:[
               {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
-              {type:'text',text:`You are analyzing an engineering drawing (${tmp.width}x${tmp.height} pixels). Find ALL dimension callouts that were MISSED by OCR.
+              {type:'text',text:`You are a SENIOR QUALITY ENGINEER with 20+ years experience in First Article Inspection (FAI), AS9102, PPAP, and GD&T per ASME Y14.5. You are auditing this engineering drawing (${tmp.width}x${tmp.height} pixels) to find EVERY inspectable characteristic.
 
-ALREADY FOUND by OCR (DO NOT repeat these):
+OCR already found these dimensions (DO NOT repeat):
 ${foundList}
 
-FIND ONLY dimensions that are NOT in the list above. Look carefully for:
-- Linear dimensions with numbers (25.4, 168.28, 0.8)
-- Diameter symbols (⌀6.31, Ø12.7)
-- Radius callouts (R12.7, R0.8, R6.4, R3.2)
-- Tolerances (±0.1, ±0.05)
-- Thread callouts (M10x1.5, M8x1.25)
-- Angles (45°, 30°)
-- Chamfers (CH 0.8x45°, 0.5x45°)
-- Feature counts (2 PLACES, 3 BOSSES, 4 HOLES)
-- GD&T symbols and values
+YOUR TASK: Find ALL dimensions and features that OCR MISSED. You must be thorough — a missed dimension means a missed inspection point in the FAI report.
 
-CRITICAL RULES:
-1. cx,cy MUST be the EXACT center of the dimension TEXT in pixels (image is ${tmp.width}x${tmp.height})
-2. Do NOT include text from the title block (bottom-right area of drawing)
-3. Do NOT include notes, revision history, or drawing borders
-4. Do NOT include section labels (SECTION A-A etc.) unless they contain dimensions
-5. ONLY include dimensions/features that have actual numeric values or measurement callouts
-6. If unsure about a coordinate, SKIP it — wrong coordinates are worse than missing dimensions
+SCAN THE ENTIRE DRAWING SYSTEMATICALLY — check every view, section, and detail:
 
-Return ONLY a JSON array (no markdown, no backticks):
-[{"text":"25.4","cx":450,"cy":320,"w":60,"h":20,"type":"linear"},...]
-If no missed dimensions found, return []`}
+1. LINEAR DIMENSIONS: Any number with dimension lines/arrows (25.4, 168.28, 0.8, 3.2)
+   - Check HORIZONTAL dimensions (easy to find)
+   - Check VERTICAL dimensions (often missed by OCR — text rotated 90°)
+   - Check ANGLED/OBLIQUE dimensions
+   - Check ORDINATE dimensions (stacked from a datum)
+   - Check dimensions BETWEEN VIEWS that span across
+
+2. DIAMETERS: ⌀ or Ø symbol followed by number (⌀6.31, Ø12.7, ⌀31.75)
+   - Check both through-holes and counterbores
+   - Check PCD (Pitch Circle Diameter) callouts
+
+3. RADII: R prefix (R12.7, R0.8, R6.4, R3.2, R10.3)
+   - Check fillets, rounds, and corner radii
+   - Check "TYP" radii (R6.4 TYP means applies to multiple places)
+
+4. TOLERANCES: ±values next to dimensions (±0.1, ±0.05, +0.02/-0.01)
+   - Check bilateral tolerances (±0.1)
+   - Check unilateral tolerances (+0.05/0, 0/-0.02)
+   - Check limit dimensions (25.1/24.9)
+
+5. THREADS: M-prefix callouts (M10x1.5, M8x1.25-6H, M6x1)
+   - Check thread depth callouts
+   - Check thread class (6H, 6g)
+
+6. CHAMFERS & EDGES: (CH 0.8x45°, 0.5x45°, C1, 1x45°)
+   - Check "BREAK ALL SHARP EDGES" notes for chamfer values
+
+7. SURFACE FINISH: Ra values, roughness symbols (▽, ▼) with numbers (Ra 3.2, Ra 1.6, 0.8)
+
+8. GD&T FEATURE CONTROL FRAMES (ASME Y14.5):
+   - Flatness (⏥), Straightness (—), Circularity (○), Cylindricity (⌭)
+   - Perpendicularity (⊥), Parallelism (∥), Angularity (∠)
+   - Position (⊕), Concentricity (◎), Symmetry (≡)
+   - Runout (↗), Total Runout (↗↗)
+   - Profile of Surface (⌓), Profile of Line (⌒)
+   - Look for DATUM references (A, B, C) and tolerance values (0.05, 0.1)
+
+9. FEATURE COUNTS & NOTES:
+   - "2 PLACES", "3 BOSSES", "4 HOLES", "TYP" (typical)
+   - "EQUI-SPACED", "BOTH SIDES", "THRU", "OPTIONAL"
+   - Hole callout blocks (⌀8.5 THRU, ⌀12 C'BORE x 6 DEEP)
+   - "X HOLES" patterns (6 HOLES ⌀9±0.1 THRU EQUI-SPACED ON PCD)
+
+10. ANGLES: Degree values (45°, 30°, 90°, 15°)
+
+11. DEPTH CALLOUTS: depth symbol (⌴) with value, or "DEEP", "DP"
+
+12. COUNTERBORE/COUNTERSINK: ⌴ (counterbore) and ⌵ (countersink) with dimensions
+
+CRITICAL COORDINATE RULES:
+- cx,cy = EXACT center of the dimension text in pixels (${tmp.width}x${tmp.height} image)
+- For VERTICAL text: cx is the horizontal center, cy is the vertical center of the rotated text
+- Do NOT include title block text (bottom ~12% of drawing, right ~40% area)
+- Do NOT include revision table, border text, or company name
+- Do NOT include section labels (SECTION A-A) — only dimension VALUES
+- Do NOT repeat any dimension already in the OCR list above
+- If a dimension appears in MULTIPLE views, include it only from the view where it's most clearly readable
+- If you cannot determine coordinates precisely, SKIP that dimension
+
+Return ONLY a JSON array (no markdown, no backticks, no explanation):
+[{"text":"R3.2","cx":450,"cy":320,"w":55,"h":20,"type":"radius"},{"text":"⌀12.7","cx":800,"cy":150,"w":65,"h":22,"type":"diameter"},...]
+
+type must be one of: linear, diameter, radius, angle, thread, chamfer, tolerance, gdt, surface_finish, feature, depth, counterbore, countersink
+
+If truly no missed dimensions, return []. But be thorough — engineering drawings typically have 40-120 inspectable characteristics.`}
             ]}]
           })
         });
@@ -1174,26 +1221,40 @@ async function exportFAI() {
         headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body:JSON.stringify({
           model:'claude-sonnet-4-20250514',
-          max_tokens:4000,
+          max_tokens:8000,
           messages:[{role:'user',content:[
             {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
-            {type:'text',text:`This is an engineering drawing with numbered balloons (blue circles with numbers). Each balloon has a leader line pointing to a specific dimension or feature on the drawing.
+            {type:'text',text:`You are a SENIOR QUALITY ENGINEER performing First Article Inspection (FAI) per AS9102. This engineering drawing has NUMBERED BALLOONS (blue circles with numbers and leader lines pointing to dimensions).
 
-For EACH numbered balloon, identify EXACTLY what dimension/feature its leader line points to. Look at the arrow tip — that's where the dimension is.
+YOUR TASK: For EACH balloon number visible in the image, identify the EXACT dimension or feature its leader arrow points to. The arrow TIP shows the feature being inspected.
 
-For each balloon, provide:
-- "num": the balloon number shown inside the circle
-- "dimension": the EXACT text of the dimension value the leader points to (e.g., "25.4", "⌀12.7", "R3.2", "M10x1.5")
-- "type": one of: linear, diameter, radius, angle, thread, chamfer, tolerance, feature, gdt, note
-- "nominal": the numeric nominal value (just the number)
-- "tol_plus": positive tolerance if shown (e.g., "0.1") or empty string
-- "tol_minus": negative tolerance if shown (e.g., "0.1") or empty string  
-- "notes": any additional info (e.g., "2 PLACES", "TYP", "BOTH SIDES", section reference)
+For each balloon provide a JSON object with:
+- "num": balloon number (integer matching what's shown in the blue circle)
+- "dimension": EXACT dimension text (e.g., "25.4±0.1", "⌀12.7", "R3.2", "M10x1.5-6H")
+- "type": classification — one of:
+    linear, diameter, radius, angle, thread, chamfer, tolerance,
+    gdt_flatness, gdt_perpendicularity, gdt_position, gdt_runout, gdt_profile, gdt_concentricity, gdt_parallelism, gdt_cylindricity, gdt_straightness, gdt_symmetry, gdt_angularity,
+    surface_finish, counterbore, countersink, depth, feature, note
+- "nominal": numeric nominal value only (e.g., "25.4" not "25.4±0.1")
+- "tol_plus": upper tolerance (e.g., "0.1") — empty string if not shown
+- "tol_minus": lower tolerance (e.g., "0.1") — empty string if not shown
+- "tol_class": tolerance class if applicable (e.g., "H7", "6g", "js6")
+- "datum": datum reference if GD&T (e.g., "A", "A|B", "A|B|C") — empty string if none
+- "notes": additional info (e.g., "2 PLACES", "TYP", "BOTH SIDES", "THRU", "SECTION A-A", "R6.4 TYP.B")
+- "inspection_method": suggest inspection tool (caliper, micrometer, CMM, height_gauge, bore_gauge, thread_gauge, profile_projector, surface_tester, go_nogo_gauge)
+
+READING RULES:
+- Follow each balloon's leader line to its arrow tip — that's the dimension
+- If the arrow points to a dimension line with a number, that number IS the dimension
+- If the arrow points to a GD&T feature control frame, read the entire frame
+- If the arrow points to a note callout (triangle with number), read the referenced note
+- For tolerances: check if the dimension has ±, bilateral, or unilateral tolerances shown
+- For threads: include pitch, class, and depth if shown (M10x1.5-6H THRU)
+- Include "TYP" or "X PLACES" if shown near the dimension
+- If a balloon points to something illegible, set dimension to "?" and notes to "VERIFY"
 
 Return ONLY a JSON array (no markdown, no backticks):
-[{"num":1,"dimension":"25.4","type":"linear","nominal":"25.4","tol_plus":"0.1","tol_minus":"0.1","notes":""},...]
-
-IMPORTANT: Match balloon numbers EXACTLY as shown in the image. If a balloon points to something you can't read clearly, use the best guess with "?" suffix.`}
+[{"num":1,"dimension":"12.7","type":"linear","nominal":"12.7","tol_plus":"","tol_minus":"","tol_class":"","datum":"","notes":"SECTION A-A","inspection_method":"caliper"},...]`}
           ]}]
         })
       });
@@ -1260,15 +1321,16 @@ select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11p
 </div>
 <table id="faiTable"><thead><tr>
   <th style="width:36px;text-align:center">#</th>
-  ${totalPages>1?'<th style="width:36px">Pg</th>':''}
   <th>Dimension / Feature</th>
   <th>Type</th>
   <th>Nominal</th>
   <th>Tol +</th>
   <th>Tol −</th>
+  <th>Datum</th>
   <th>Actual</th>
   <th>Dev</th>
-  <th style="width:60px">Result</th>
+  <th style="width:55px">Result</th>
+  <th>Method</th>
   <th>Remarks</th>
 </tr></thead><tbody>`;
 
@@ -1280,19 +1342,22 @@ select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11p
     const nom=ai?ai.nominal:(b.text||'');
     const tp=ai?(ai.tol_plus||''):'';
     const tm=ai?(ai.tol_minus||''):'';
-    const notes=ai?(ai.notes||''):'';
+    const datum=ai?(ai.datum||''):'';
+    const method=ai?(ai.inspection_method||''):'';
+    const notes=ai?[ai.notes||'',ai.tol_class?'Class: '+ai.tol_class:''].filter(Boolean).join('; '):'';
     
     html+=`<tr>
   <td style="text-align:center"><div class="bal-num">${b.num}</div></td>
-  ${totalPages>1?`<td style="text-align:center;font-size:10px">${b.page||1}</td>`:''}
   <td><div class="editable" contenteditable="true">${dim}</div></td>
   <td><div class="editable" contenteditable="true">${type}</div></td>
   <td><div class="editable" contenteditable="true">${nom}</div></td>
   <td><div class="editable" contenteditable="true">${tp}</div></td>
   <td><div class="editable" contenteditable="true">${tm}</div></td>
+  <td><div class="editable" contenteditable="true">${datum}</div></td>
   <td><div class="editable" contenteditable="true" style="background:#fffde7"></div></td>
   <td><div class="editable" contenteditable="true"></div></td>
   <td><select class="verdict" onchange="this.className='verdict '+(this.value==='PASS'?'result-pass':'result-fail')"><option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></td>
+  <td><div class="editable" contenteditable="true" style="font-size:10px">${method}</div></td>
   <td><div class="editable" contenteditable="true">${notes}</div></td>
 </tr>`;
   });
