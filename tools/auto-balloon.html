@@ -113,6 +113,7 @@ input.inp:focus{border-color:var(--acc)}
     <div class="mode-btns">
       <div class="mbtn on" id="mBox" onclick="setMode('box')">⬜ Box</div>
       <div class="mbtn" id="mClick" onclick="setMode('click')">🎯 Click</div>
+      <div class="mbtn" id="mManual" onclick="setMode('manual')">✏️ Manual</div>
       <div class="mbtn" id="mDrag" onclick="setMode('drag')">✋ Move</div>
       <div class="mbtn" id="mMove" onclick="setMode('pan')">🔍 Pan</div>
     </div>
@@ -141,6 +142,8 @@ input.inp:focus{border-color:var(--acc)}
       <div class="sbox"><div class="v" id="sv3">0</div><div class="l">Boxes</div></div>
     </div>
     <button class="btn btn-suc" onclick="exportPDF()">⬇ Download PDF</button>
+    <button class="btn btn-suc" style="background:#1565C0;margin-top:3px" onclick="exportFAI()">📋 Generate FAI Report</button>
+    <button class="btn btn-out" onclick="renumberAll()">🔢 Renumber All (fix gaps)</button>
     <button class="btn btn-out" onclick="undoLast()">↩ Undo last box</button>
     <button class="btn btn-out" onclick="clearAll()">✕ Clear all</button>
   </div>
@@ -469,6 +472,9 @@ canvas.addEventListener('mouseup',e=>{
   } else if(mode==='click'){
     const dp=toDrawing(pos.sx,pos.sy);
     placeOnClick(dp.x,dp.y);
+  } else if(mode==='manual'){
+    const dp=toDrawing(pos.sx,pos.sy);
+    placeManual(dp.x,dp.y);
   } else if(mode==='pan'){
     isPanning=false;
     canvas.style.cursor='grab';
@@ -671,10 +677,16 @@ function placeInBox(x1,y1,x2,y2) {
   const placed=balloons.map(b=>[b.bx,b.by]);
   history.push(balloons.length);
   
-  const inBox=allDims.filter(d=>
-    d.cx>=x1&&d.cx<=x2&&d.cy>=y1&&d.cy<=y2&&
-    !balloons.some(b=>Math.hypot(b.tx-d.cx,b.ty-d.cy)<BR*1.5)
-  );
+  const inBox=allDims.filter(d=>{
+    if(d.cx<x1||d.cx>x2||d.cy<y1||d.cy>y2) return false;
+    // STRICT duplicate check: skip if ANY existing balloon already points to this exact dimension
+    const isDuplicate=balloons.some(b=>{
+      const distToCenter=Math.hypot(b.tx-d.cx,b.ty-d.cy);
+      const textMatch=b.text && b.text===d.text && distToCenter<BR*3;
+      return distToCenter<BR*1.2 || textMatch;
+    });
+    return !isDuplicate;
+  });
   if(!inBox.length){toast('No unballooned dimensions in this box');return;}
   
   const edge=bestEdgeForBox(x1,y1,x2,y2);
@@ -815,6 +827,158 @@ function exportPDF() {
   toast('PDF downloaded ✓');
 }
 
+// ── PLACE MANUAL — no dimension detection, click anywhere ─────────────────
+function placeManual(dx,dy) {
+  if(!workCanvas){toast('Load a drawing first');return;}
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
+  const num=balloons.length+1;
+  // Place balloon below the click point
+  const bx=dx, by=dy+BR*3;
+  const tipx=dx, tipy=dy;
+  // Prompt for dimension text
+  const text=prompt(`Balloon #${num} — Enter dimension text:`, '');
+  if(text===null) return; // cancelled
+  history.push(balloons.length);
+  balloons.push({num,text:text||'?',type:'manual',bx,by,tx:dx,ty:dy,tipx,tipy});
+  render(); updateList(); updateStats();
+  toast(`✓ Manual balloon #${num} placed`);
+}
+
+// ── RENUMBER ALL — fix gaps, sequential from 1 ───────────────────────────
+function renumberAll() {
+  if(!balloons.length){toast('No balloons to renumber');return;}
+  // Sort by position: top-to-bottom, left-to-right within rows
+  const sorted=[...balloons];
+  sorted.sort((a,b)=>{
+    const rowA=Math.floor(a.ty/150), rowB=Math.floor(b.ty/150);
+    if(rowA!==rowB) return rowA-rowB;
+    return a.tx-b.tx;
+  });
+  // Assign new sequential numbers
+  sorted.forEach((b,i)=>{b.num=i+1;});
+  // Update balloons array to match sorted order
+  balloons.length=0;
+  sorted.forEach(b=>balloons.push(b));
+  render(); updateList(); updateStats();
+  toast(`✓ Renumbered ${balloons.length} balloons (1 to ${balloons.length})`);
+}
+
+// ── FAI REPORT GENERATOR ─────────────────────────────────────────────────
+function exportFAI() {
+  if(!balloons.length){toast('No balloons to export');return;}
+  // Sort by balloon number
+  const sorted=[...balloons].sort((a,b)=>a.num-b.num);
+  
+  // Build HTML report
+  let html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>FAI Report — MechProTools</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;padding:20px;background:#fff;color:#1a1a1a}
+.header{text-align:center;margin-bottom:20px;padding-bottom:15px;border-bottom:2px solid #0057b8}
+.header h1{font-size:18px;color:#0057b8;margin-bottom:4px}
+.header p{font-size:11px;color:#666}
+.info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:15px}
+.info-box{border:1px solid #ddd;border-radius:6px;padding:8px 10px}
+.info-box label{font-size:9px;text-transform:uppercase;color:#888;letter-spacing:1px;display:block;margin-bottom:2px}
+.info-box input,.info-box select{border:none;border-bottom:1px solid #ddd;width:100%;padding:3px 0;font-size:12px;outline:none;font-family:inherit}
+.info-box input:focus{border-color:#0057b8}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+th{background:#0057b8;color:#fff;padding:6px 8px;text-align:left;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:5px 8px;border:1px solid #ddd}
+tr:nth-child(even){background:#f8f9fa}
+tr:hover{background:#e8f0fe}
+.bal-num{background:#0057b8;color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;margin:0 auto}
+.editable{min-width:60px;min-height:18px;outline:none;border-radius:3px;padding:2px 4px}
+.editable:focus{background:#fff3cd;box-shadow:0 0 0 2px #ffc107}
+.result-pass{color:#2e7d32;font-weight:600}.result-fail{color:#c92a2a;font-weight:600}
+select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11px}
+.footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
+.actions{margin:15px 0;display:flex;gap:8px;justify-content:center}
+.actions button{padding:8px 16px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-print{background:#0057b8;color:#fff}.btn-add{background:#2e7d32;color:#fff}.btn-csv{background:#555;color:#fff}
+@media print{.actions{display:none}.editable:focus{background:transparent;box-shadow:none}body{padding:10px}}
+</style></head><body>
+<div class="header">
+  <h1>FIRST ARTICLE INSPECTION REPORT</h1>
+  <p>Generated by MechProTools Auto-Balloon · ${new Date().toLocaleDateString()}</p>
+</div>
+<div class="info-grid">
+  <div class="info-box"><label>Part Name</label><input type="text" placeholder="Enter part name"></div>
+  <div class="info-box"><label>Part Number</label><input type="text" placeholder="Enter part number"></div>
+  <div class="info-box"><label>Drawing Number</label><input type="text" placeholder="Enter drawing number"></div>
+  <div class="info-box"><label>Revision</label><input type="text" placeholder="Rev"></div>
+  <div class="info-box"><label>Inspector</label><input type="text" placeholder="Name"></div>
+  <div class="info-box"><label>Date</label><input type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+</div>
+<div class="actions">
+  <button class="btn-print" onclick="window.print()">🖨 Print Report</button>
+  <button class="btn-add" onclick="addRow()">+ Add Row</button>
+  <button class="btn-csv" onclick="downloadCSV()">⬇ Export CSV</button>
+</div>
+<table id="faiTable">
+<thead><tr>
+  <th style="width:40px;text-align:center">#</th>
+  <th>Dimension / Feature</th>
+  <th>Type</th>
+  <th>Nominal</th>
+  <th>Tol +</th>
+  <th>Tol −</th>
+  <th>Actual</th>
+  <th>Dev</th>
+  <th style="width:70px">Result</th>
+  <th>Remarks</th>
+</tr></thead>
+<tbody>`;
+
+  sorted.forEach(b=>{
+    html+=`<tr>
+  <td style="text-align:center"><div class="bal-num">${b.num}</div></td>
+  <td><div class="editable" contenteditable="true">${b.text||'?'}</div></td>
+  <td><div class="editable" contenteditable="true">${b.type||'linear'}</div></td>
+  <td><div class="editable" contenteditable="true">${b.text||''}</div></td>
+  <td><div class="editable" contenteditable="true"></div></td>
+  <td><div class="editable" contenteditable="true"></div></td>
+  <td><div class="editable" contenteditable="true" style="background:#fffde7"></div></td>
+  <td><div class="editable" contenteditable="true"></div></td>
+  <td><select class="verdict" onchange="this.className='verdict '+(this.value==='PASS'?'result-pass':'result-fail')"><option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></td>
+  <td><div class="editable" contenteditable="true"></div></td>
+</tr>`;
+  });
+
+  html+=`</tbody></table>
+<div class="footer">MechProTools FAI Report · mechsterrd-maker.github.io · ${new Date().toISOString().slice(0,10)}</div>
+<script>
+function addRow(){
+  const tbody=document.querySelector('#faiTable tbody');
+  const num=tbody.rows.length+1;
+  const row=tbody.insertRow();
+  row.innerHTML='<td style="text-align:center"><div class="bal-num">'+num+'</div></td><td><div class="editable" contenteditable="true">New dimension</div></td><td><div class="editable" contenteditable="true">linear</div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true" style="background:#fffde7"></div></td><td><div class="editable" contenteditable="true"></div></td><td><select class="verdict" onchange="this.className=\\'verdict \\'+( this.value===\\'PASS\\'?\\'result-pass\\':\\'result-fail\\')"><option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></td><td><div class="editable" contenteditable="true"></div></td>';
+}
+function downloadCSV(){
+  const rows=[['#','Dimension','Type','Nominal','Tol+','Tol-','Actual','Dev','Result','Remarks']];
+  document.querySelectorAll('#faiTable tbody tr').forEach(tr=>{
+    const cells=[];
+    tr.querySelectorAll('td').forEach((td,i)=>{
+      if(i===0)cells.push(td.textContent.trim());
+      else if(i===8)cells.push(td.querySelector('select').value);
+      else cells.push(td.textContent.trim());
+    });
+    rows.push(cells);
+  });
+  const csv=rows.map(r=>r.map(c=>'"'+c.replace(/"/g,'""')+'"').join(',')).join('\\n');
+  const a=document.createElement('a');a.download='FAI_Report.csv';
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.click();
+}
+<\/script></body></html>`;
+
+  // Open in new tab
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank');
+  toast('FAI report opened in new tab ✓');
+}
+
 // ── UI HELPERS ─────────────────────────────────────────────────────────────
 function updateList() {
   const list=document.getElementById('blist');
@@ -838,15 +1002,17 @@ function setMode(m) {
   mode=m;
   document.getElementById('mBox').className='mbtn'+(m==='box'?' on':'');
   document.getElementById('mClick').className='mbtn'+(m==='click'?' on':'');
+  document.getElementById('mManual').className='mbtn'+(m==='manual'?' on':'');
   document.getElementById('mDrag').className='mbtn'+(m==='drag'?' on':'');
   document.getElementById('mMove').className='mbtn'+(m==='pan'?' on':'');
   const helps={
     box:'Draw a box around any section — all dimensions inside get balloons instantly.',
     click:'Click directly on any dimension text to place a balloon.',
+    manual:'Click anywhere to place a balloon manually — no dimension detection needed. Enter dimension text when prompted.',
     drag:'Drag balloons to move them. Drag the arrow tip to re-aim the leader.',
     pan:'Scroll wheel to zoom. Click and drag to pan.'
   };
-  const inds={box:'□ Box',click:'🎯 Click',drag:'✋ Move',pan:'🔍 Pan'};
+  const inds={box:'□ Box',click:'🎯 Click',manual:'✏️ Manual',drag:'✋ Move',pan:'🔍 Pan'};
   document.getElementById('modeHelp').textContent=helps[m];
   document.getElementById('modeInd').textContent=inds[m];
   canvas.style.cursor=m==='pan'?'grab':m==='drag'?'default':'crosshair';
