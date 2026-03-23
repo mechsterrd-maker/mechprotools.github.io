@@ -1007,6 +1007,27 @@ If truly no missed dimensions, return []. But be thorough — engineering drawin
             if(d.cy<tmp.height*0.05 || d.cx<tmp.width*0.04) return false;
             // Must have text
             if(!d.text||d.text.trim().length===0) return false;
+            // CRITICAL: Check if there's actual drawing content at this location
+            const fullX=Math.round(d.cx*scaleBack);
+            const fullY=Math.round(d.cy*scaleBack);
+            if(blankMap && fullX>0 && fullY>0 && fullX<W && fullY<H){
+              const checkR=Math.round(PX_PER_MM*5); // 5mm radius check
+              let blankCount=0,totalCount=0;
+              for(let dy=-checkR;dy<=checkR;dy+=4){
+                for(let dx=-checkR;dx<=checkR;dx+=4){
+                  const px=fullX+dx,py=fullY+dy;
+                  if(px>=0&&px<W&&py>=0&&py<H){
+                    totalCount++;
+                    if(blankMap[py*W+px]) blankCount++;
+                  }
+                }
+              }
+              const blankPct=totalCount>0?blankCount/totalCount:1;
+              if(blankPct>0.85){
+                console.log(`Rejected Claude dim "${d.text}" at (${d.cx},${d.cy})→full(${fullX},${fullY}) — ${Math.round(blankPct*100)}% blank`);
+                return false;
+              }
+            }
             return true;
           }).map(d=>({
             ...d,
