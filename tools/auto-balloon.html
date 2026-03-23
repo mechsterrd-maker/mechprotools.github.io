@@ -1382,9 +1382,7 @@ select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11p
 </tr></thead><tbody>`;
 
   sorted.forEach(b=>{
-    // Get AI data for this balloon if available
-    const ai=aiData?aiData.find(a=>a.num===b.num):null;
-    // Get AI data for this balloon if available — fallback to OCR text if AI returns "?"
+    // Get AI data for this balloon — fallback to OCR text if AI returns "?"
     const ai=aiData?aiData.find(a=>a.num===b.num):null;
     const aiDim=ai?ai.dimension:null;
     const hasAI=aiDim && aiDim!=='?' && aiDim!=='VERIFY' && aiDim!=='unknown';
