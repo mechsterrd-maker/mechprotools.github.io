@@ -131,9 +131,9 @@ input.inp:focus{border-color:var(--acc)}
     </div>
     <div class="sr">
       <span class="sl">Max leader</span>
-      <input type="range" id="lmx" min="20" max="80" value="50" step="1"
+      <input type="range" id="lmx" min="5" max="40" value="12" step="1"
         oninput="document.getElementById('lmxv').textContent=this.value+'mm'">
-      <span class="sv" id="lmxv">50mm</span>
+      <span class="sv" id="lmxv">12mm</span>
     </div>
   </div>
 
@@ -389,23 +389,39 @@ function tipAtEdge(tcx, tcy, tw, th, bx, by) {
   return [Math.round(tcx - dx*ttb), Math.round(tcy - Math.sign(dy)*hh)];
 }
 
-// ── DRAW ONE BALLOON — no leader, balloon adjacent to dimension ────────────
+// ── DRAW ONE BALLOON — short straight leader, max 8mm ─────────────────────
 function drawBalloon(c, bx, by, tipx, tipy, num, BR) {
   const LW = Math.max(2, Math.round(PX_PER_MM * 0.45));
   const FS = Math.round(BR * 1.12);
+  const dx = bx - tipx, dy = by - tipy;
+  const dist = Math.hypot(dx, dy);
 
-  // Balloon circle only — no leader line, no arrow
+  if(dist > 2) {
+    const nx = dx/dist, ny = dy/dist;
+    const ex = bx - nx*(BR+1), ey = by - ny*(BR+1);
+
+    // Leader line
+    c.strokeStyle = '#0A1EA0'; c.lineWidth = LW;
+    c.beginPath(); c.moveTo(tipx, tipy); c.lineTo(ex, ey); c.stroke();
+
+    // Small solid arrowhead at tip
+    const al = Math.round(PX_PER_MM * 2.0);
+    const aw = Math.round(PX_PER_MM * 0.8);
+    const px = -ny, py = nx;
+    c.fillStyle = '#0A1EA0'; c.beginPath();
+    c.moveTo(tipx, tipy);
+    c.lineTo(tipx - nx*al + px*aw, tipy - ny*al + py*aw);
+    c.lineTo(tipx - nx*al - px*aw, tipy - ny*al - py*aw);
+    c.closePath(); c.fill();
+  }
+
   c.fillStyle = '#ffffff';
   c.beginPath(); c.arc(bx, by, BR, 0, Math.PI*2); c.fill();
-  c.strokeStyle = '#0A1EA0';
-  c.lineWidth = Math.max(2, LW*1.1);
+  c.strokeStyle = '#0A1EA0'; c.lineWidth = Math.max(2, LW*1.1);
   c.beginPath(); c.arc(bx, by, BR, 0, Math.PI*2); c.stroke();
-
-  // Number centred
   c.fillStyle = '#0A1EA0';
   c.font = `bold ${FS}px 'Segoe UI',sans-serif`;
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillText(String(num), bx, by+1);
 }
 
