@@ -441,8 +441,9 @@ function isBlank(cx,cy,r) {
   return total>0&&blank/total>.78;
 }
 
-// Check if leader line is clear of ALL obstacles (balloons + dimension text boxes)
-function isLeaderClear(ax,ay,bx,by,placed,BR) {
+// Check if leader line is clear of obstacles (balloons + OTHER dimension text boxes)
+// skipDim = the dimension this balloon is FOR (don't check leader against its own dim)
+function isLeaderClear(ax,ay,bx,by,placed,BR,skipDim) {
   // 1. Check leader doesn't cross existing balloons
   for(const p of placed) {
     const dx=bx-ax, dy=by-ay, len2=dx*dx+dy*dy;
@@ -450,15 +451,15 @@ function isLeaderClear(ax,ay,bx,by,placed,BR) {
     let t=((p[0]-ax)*dx+(p[1]-ay)*dy)/len2;
     t=Math.max(0,Math.min(1,t));
     const cx=ax+t*dx, cy=ay+t*dy;
-    if(Math.hypot(p[0]-cx,p[1]-cy)<BR*1.4) return false;
+    if(Math.hypot(p[0]-cx,p[1]-cy)<BR*1.3) return false;
   }
-  // 2. Check leader doesn't cross dimension text boxes
+  // 2. Check leader doesn't cross OTHER dimension text boxes (skip own dimension)
   for(const d of allDims) {
-    // Expand dimension bbox by margin
-    const mx=12, my=8;
+    // SKIP the dimension this leader belongs to
+    if(skipDim && Math.abs(d.cx-skipDim.cx)<5 && Math.abs(d.cy-skipDim.cy)<5) continue;
+    const mx=6, my=4;
     const rx1=d.cx-(d.w||50)/2-mx, ry1=d.cy-(d.h||24)/2-my;
     const rx2=d.cx+(d.w||50)/2+mx, ry2=d.cy+(d.h||24)/2+my;
-    // Check if line segment intersects this rectangle
     if(lineIntersectsRect(ax,ay,bx,by,rx1,ry1,rx2,ry2)) return false;
   }
   return true;
@@ -485,17 +486,19 @@ function lineSegIntersect(x1,y1,x2,y2,x3,y3,x4,y4) {
   return t>=0&&t<=1&&u>=0&&u<=1;
 }
 
-// Check balloon position doesn't overlap ANY dimension text
-function overlapsDimension(cx,cy,BR) {
+// Check balloon position doesn't overlap OTHER dimension text (skip own dim)
+function overlapsDimension(cx,cy,BR,skipDim) {
   for(const d of allDims) {
-    const hw=(d.w||50)/2+BR+6, hh=(d.h||24)/2+BR+6;
+    // Skip the dimension this balloon belongs to
+    if(skipDim && Math.abs(d.cx-skipDim.cx)<5 && Math.abs(d.cy-skipDim.cy)<5) continue;
+    const hw=(d.w||50)/2+BR*0.8, hh=(d.h||24)/2+BR*0.8;
     if(Math.abs(cx-d.cx)<hw && Math.abs(cy-d.cy)<hh) return true;
   }
   return false;
 }
 
-// Find blank space — v3: avoids dimensions, checks leader path, prefers direction
-function findBlank(tx,ty,placed,preferDir) {
+// Find blank space — v4: skips own dimension in checks, avoids others
+function findBlank(tx,ty,placed,preferDir,sourceDim) {
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
   const MAXD=Math.round(parseFloat(document.getElementById('lmx').value)*PX_PER_MM);
   
@@ -512,8 +515,8 @@ function findBlank(tx,ty,placed,preferDir) {
     for(let deg=0;deg<360;deg+=6) angles.push(deg);
   }
   
-  // Start searching further out to avoid covering dimensions
-  const minDist=Math.round(BR*2.2);
+  // Start searching from a reasonable distance
+  const minDist=Math.round(BR*2.0);
   
   for(let dist=minDist;dist<=MAXD;dist+=Math.round(BR*0.4)){
     const hits=[];
@@ -525,13 +528,13 @@ function findBlank(tx,ty,placed,preferDir) {
       if(cx-BR<8||cx+BR>W-8||cy-BR<8||cy+BR>H-8) continue;
       if(cx<W*.09||cy<H*.065||cy>H*.88) continue;
       // Must be on blank (white) space
-      if(!isBlank(cx,cy,Math.round(BR*1.3))) continue;
-      // Must not overlap ANY dimension text box
-      if(overlapsDimension(cx,cy,BR)) continue;
+      if(!isBlank(cx,cy,Math.round(BR*1.2))) continue;
+      // Must not overlap OTHER dimension text (skip own)
+      if(overlapsDimension(cx,cy,BR,sourceDim)) continue;
       // Must not be too close to existing balloons
-      if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1])<BR*2.6)) continue;
-      // Leader path must be clear of other balloons AND dimension text
-      if(!isLeaderClear(tx,ty,cx,cy,placed,BR)) continue;
+      if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1])<BR*2.5)) continue;
+      // Leader path must be clear (skip own dimension in check)
+      if(!isLeaderClear(tx,ty,cx,cy,placed,BR,sourceDim)) continue;
       // Score: prefer direction + closer distance
       let score=dist;
       if(preferDir!==undefined) {
@@ -588,10 +591,10 @@ function placeInBox(x1,y1,x2,y2) {
   let ok=0;
   inBox.forEach((dim,i)=>{
     const num=balloons.length+1;
-    // Try preferred edge direction first
-    let pos=findBlank(dim.cx,dim.cy,placed,edge.dir);
+    // Try preferred edge direction first, pass dim as sourceDim so it's skipped in checks
+    let pos=findBlank(dim.cx,dim.cy,placed,edge.dir,dim);
     // Fallback: try any direction
-    if(!pos) pos=findBlank(dim.cx,dim.cy,placed);
+    if(!pos) pos=findBlank(dim.cx,dim.cy,placed,undefined,dim);
     if(pos){
       const [bx,by]=pos; placed.push([bx,by]);
       const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
@@ -616,7 +619,7 @@ function placeOnClick(dx,dy) {
     .sort((a,b)=>a.dist-b.dist);
   if(!near.length){toast('No dimension near click — try closer');return;}
   const dim=near[0];
-  const pos=findBlank(dim.cx,dim.cy,placed); // no preferred direction for click mode
+  const pos=findBlank(dim.cx,dim.cy,placed,undefined,dim);
   if(pos){
     const [bx,by]=pos;
     const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
