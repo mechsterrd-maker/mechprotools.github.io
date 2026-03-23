@@ -810,7 +810,7 @@ async function processDrawing() {
       try{
         // Create compressed image for Claude
         const tmp=document.createElement('canvas');
-        const maxW=2000;
+        const maxW=2500;
         const ratio=Math.min(maxW/W,1);
         tmp.width=Math.round(W*ratio);tmp.height=Math.round(H*ratio);
         tmp.getContext('2d').drawImage(workCanvas,0,0,tmp.width,tmp.height);
@@ -841,6 +841,25 @@ YOUR TASK: Find ALL dimensions and features that OCR MISSED. You must be thoroug
 
 SCAN THE ENTIRE DRAWING SYSTEMATICALLY — check every view, section, and detail:
 
+** IMPORTANT — SCAN EACH VIEW SEPARATELY: **
+- MAIN VIEW (largest view, usually top-center): scan left→right, top→bottom for every dimension
+- SECTION VIEWS (Section A-A, B-B, C-C, D-D, E-E): these are SEPARATE views, scan each one completely
+- DETAIL VIEWS: zoomed-in areas showing fine features
+- BOTTOM/SIDE VIEWS: additional orthographic projections below or beside main view
+- NOTE AREA (usually right side): △ triangle notes with referenced numbers — each is an inspectable requirement
+
+** OCR COMMONLY MISSES THESE — PAY EXTRA ATTENTION: **
+- VERTICAL/ROTATED TEXT (dimensions written at 90° along vertical dimension lines)
+- VERY SMALL TEXT (R0.8, 0.15, 1.6, ⌀5.4 — tiny dimensions near features)
+- STACKED TOLERANCES (upper/lower limit numbers like 7.810 over 8.064)
+- DIMENSIONS ON LEADER LINES (dimension text at end of arrow, not between extension lines)
+- CHAMFER CALLOUTS (0.8x45° written near corners)
+- HOLE CALLOUTS (⌀8.7 2 PL BOTTOM, ⌀9.1 HOLE TOP SIDE)
+- NOTE REFERENCES (△1, △2... with the actual note text on the side)
+- DEPTH DIMENSIONS (values with depth symbol or "DEEP")
+- ARC DIMENSIONS (dimensions along curved surfaces)
+- DIMENSIONS INSIDE HATCHED/SECTION AREAS
+
 1. LINEAR DIMENSIONS: Any number with dimension lines/arrows (25.4, 168.28, 0.8, 3.2)
    - Check HORIZONTAL dimensions (easy to find)
    - Check VERTICAL dimensions (often missed by OCR — text rotated 90°)
@@ -851,15 +870,17 @@ SCAN THE ENTIRE DRAWING SYSTEMATICALLY — check every view, section, and detail
 2. DIAMETERS: ⌀ or Ø symbol followed by number (⌀6.31, Ø12.7, ⌀31.75)
    - Check both through-holes and counterbores
    - Check PCD (Pitch Circle Diameter) callouts
+   - Check BORE diameters in section views
 
 3. RADII: R prefix (R12.7, R0.8, R6.4, R3.2, R10.3)
    - Check fillets, rounds, and corner radii
    - Check "TYP" radii (R6.4 TYP means applies to multiple places)
+   - Check EVERY corner of EVERY view — radii are the most commonly missed
 
 4. TOLERANCES: ±values next to dimensions (±0.1, ±0.05, +0.02/-0.01)
    - Check bilateral tolerances (±0.1)
    - Check unilateral tolerances (+0.05/0, 0/-0.02)
-   - Check limit dimensions (25.1/24.9)
+   - Check limit dimensions (25.1/24.9) — two numbers stacked vertically
 
 5. THREADS: M-prefix callouts (M10x1.5, M8x1.25-6H, M6x1)
    - Check thread depth callouts
@@ -867,6 +888,7 @@ SCAN THE ENTIRE DRAWING SYSTEMATICALLY — check every view, section, and detail
 
 6. CHAMFERS & EDGES: (CH 0.8x45°, 0.5x45°, C1, 1x45°)
    - Check "BREAK ALL SHARP EDGES" notes for chamfer values
+   - Check every visible chamfer on every view
 
 7. SURFACE FINISH: Ra values, roughness symbols (▽, ▼) with numbers (Ra 3.2, Ra 1.6, 0.8)
 
@@ -876,15 +898,16 @@ SCAN THE ENTIRE DRAWING SYSTEMATICALLY — check every view, section, and detail
    - Position (⊕), Concentricity (◎), Symmetry (≡)
    - Runout (↗), Total Runout (↗↗)
    - Profile of Surface (⌓), Profile of Line (⌒)
-   - Look for DATUM references (A, B, C) and tolerance values (0.05, 0.1)
+   - Look for DATUM references (A, B, C) and tolerance values
 
 9. FEATURE COUNTS & NOTES:
    - "2 PLACES", "3 BOSSES", "4 HOLES", "TYP" (typical)
    - "EQUI-SPACED", "BOTH SIDES", "THRU", "OPTIONAL"
    - Hole callout blocks (⌀8.5 THRU, ⌀12 C'BORE x 6 DEEP)
    - "X HOLES" patterns (6 HOLES ⌀9±0.1 THRU EQUI-SPACED ON PCD)
+   - △ TRIANGLE NOTE REFERENCES — read the note text they reference
 
-10. ANGLES: Degree values (45°, 30°, 90°, 15°)
+10. ANGLES: Degree values (45°, 30°, 4°, 15°)
 
 11. DEPTH CALLOUTS: depth symbol (⌴) with value, or "DEEP", "DP"
 
