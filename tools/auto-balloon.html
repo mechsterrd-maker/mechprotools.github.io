@@ -1193,18 +1193,30 @@ select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11p
 <script>
 function addRow(){
   const t=document.querySelector('#faiTable tbody');const n=t.rows.length+1;const r=t.insertRow();
-  r.innerHTML='<td style="text-align:center"><div class="bal-num">'+n+'</div></td>${totalPages>1?"<td style=\\"text-align:center;font-size:10px\\">1</td>":""}'+
-  '<td><div class="editable" contenteditable="true">New dimension</div></td><td><div class="editable" contenteditable="true">linear</div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true" style="background:#fffde7"></div></td><td><div class="editable" contenteditable="true"></div></td><td><select class="verdict"><option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></td><td><div class="editable" contenteditable="true"></div></td>';
+  r.innerHTML='<td style="text-align:center"><div class="bal-num">'+n+'</div></td>'
+    +'<td><div class="editable" contenteditable="true">New dimension</div></td>'
+    +'<td><div class="editable" contenteditable="true">linear</div></td>'
+    +'<td><div class="editable" contenteditable="true"></div></td>'
+    +'<td><div class="editable" contenteditable="true"></div></td>'
+    +'<td><div class="editable" contenteditable="true"></div></td>'
+    +'<td><div class="editable" contenteditable="true" style="background:#fffde7"></div></td>'
+    +'<td><div class="editable" contenteditable="true"></div></td>'
+    +'<td><select class="verdict"><option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></td>'
+    +'<td><div class="editable" contenteditable="true"></div></td>';
 }
 function downloadCSV(){
-  const rows=[[${totalPages>1?"'#','Page','Dimension','Type','Nominal','Tol+','Tol-','Actual','Dev','Result','Remarks'":"'#','Dimension','Type','Nominal','Tol+','Tol-','Actual','Dev','Result','Remarks'"}]];
-  document.querySelectorAll('#faiTable tbody tr').forEach(tr=>{
-    const c=[];tr.querySelectorAll('td').forEach((td,i)=>{
-      const sel=td.querySelector('select');c.push(sel?sel.value:td.textContent.trim());
-    });rows.push(c);
+  const hdr=['#','Dimension','Type','Nominal','Tol+','Tol-','Actual','Dev','Result','Remarks'];
+  const rows=[hdr];
+  document.querySelectorAll('#faiTable tbody tr').forEach(function(tr){
+    const c=[];
+    tr.querySelectorAll('td').forEach(function(td){
+      var sel=td.querySelector('select');
+      c.push(sel?sel.value:td.textContent.trim());
+    });
+    rows.push(c);
   });
-  const csv=rows.map(r=>r.map(c=>'"'+c.replace(/"/g,'""')+'"').join(',')).join('\\n');
-  const a=document.createElement('a');a.download='FAI_Report.csv';
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+c.replace(/"/g,'""')+'"';}).join(',');}).join('\\n');
+  var a=document.createElement('a');a.download='FAI_Report.csv';
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.click();
 }
 <\/script></body></html>`;
