@@ -329,16 +329,18 @@ function render() {
   const dw=Math.round(W*zoomLvl);
   const dh=Math.round(H*zoomLvl);
   ctx.drawImage(workCanvas,panX,panY,dw,dh);
-  // Draw balloons
+  // Draw balloons — ONLY for current page
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM*zoomLvl);
-  balloons.forEach((b,i)=>{
+  const pageBalloons=balloons.filter(b=>(b.page||1)===currentPage);
+  pageBalloons.forEach((b,i)=>{
+    const realIdx=balloons.indexOf(b);
     const sbx=Math.round(b.bx*zoomLvl+panX);
     const sby=Math.round(b.by*zoomLvl+panY);
     const stx=Math.round(b.tipx*zoomLvl+panX);
     const sty=Math.round(b.tipy*zoomLvl+panY);
     drawBalloon(sbx,sby,stx,sty,b.num,BR);
     // Highlight if being dragged
-    if(dragTarget&&dragTarget.idx===i){
+    if(dragTarget&&dragTarget.idx===realIdx){
       ctx.strokeStyle='#ff6600'; ctx.lineWidth=2; ctx.setLineDash([4,3]);
       if(dragTarget.type==='balloon'){
         ctx.beginPath();ctx.arc(sbx,sby,BR+5,0,Math.PI*2);ctx.stroke();
@@ -410,14 +412,14 @@ function getCanvasPos(e) {
 // Hit-test: find balloon or tip under cursor (in drawing coords)
 function hitTest(dx,dy) {
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-  // Check leader tips first (smaller target, higher priority)
   for(let i=balloons.length-1;i>=0;i--){
     const b=balloons[i];
+    if((b.page||1)!==currentPage) continue;
     if(Math.hypot(dx-b.tipx,dy-b.tipy)<BR*0.8) return {type:'tip',idx:i};
   }
-  // Check balloon circles
   for(let i=balloons.length-1;i>=0;i--){
     const b=balloons[i];
+    if((b.page||1)!==currentPage) continue;
     if(Math.hypot(dx-b.bx,dy-b.by)<BR*1.2) return {type:'balloon',idx:i};
   }
   return null;
@@ -804,6 +806,7 @@ async function processDrawing() {
     
     if(apiKey){
       setP(60,'Pass 2: Claude AI scanning for missed dimensions...');
+      toast('🤖 Claude AI analyzing drawing...');
       try{
         // Create compressed image for Claude
         const tmp=document.createElement('canvas');
@@ -855,7 +858,12 @@ If no missed dimensions, return [].`}
           })
         });
         const claudeData=await claudeResp.json();
+        console.log('Claude API response:',claudeData);
+        if(claudeData.error){
+          throw new Error('Claude API: '+(claudeData.error.message||JSON.stringify(claudeData.error)));
+        }
         const claudeText=claudeData.content.map(c=>c.text||'').join('');
+        console.log('Claude raw text:',claudeText.substring(0,300));
         const cleaned=claudeText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
         
         if(cleaned&&cleaned!=='[]'){
@@ -874,8 +882,9 @@ If no missed dimensions, return [].`}
         }
         setP(80,`Pass 2: Claude found ${claudeDims.length} additional dimensions`);
       }catch(e2){
-        console.warn('Claude pass failed (continuing with Doc AI only):',e2);
-        setP(80,'Pass 2: Claude unavailable — using Document AI only');
+        console.error('Claude pass error:',e2);
+        toast('⚠️ Claude AI: '+e2.message);
+        setP(80,'Pass 2: Claude failed — '+e2.message.substring(0,50));
       }
     } else {
       setP(80,'Pass 2: Skipped (no Claude API key)');
@@ -929,7 +938,8 @@ function exportPDF() {
   const oc=out.getContext('2d');
   oc.drawImage(workCanvas,0,0);
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-  balloons.forEach(b=>{
+  const pageBalloons=balloons.filter(b=>(b.page||1)===currentPage);
+  pageBalloons.forEach(b=>{
     const BLUE='#0A1EA0';
     const LW=Math.max(3,Math.round(PX_PER_MM*.5));
     const dx=b.bx-b.tipx,dy=b.by-b.tipy,dist=Math.hypot(dx,dy);
@@ -973,9 +983,9 @@ async function goPage(delta){
   setP(20,'Loading page '+newPg+'...');showP(true);
   await renderPDFPage(newPg);
   showP(false);
-  // Re-process if needed
-  allDims=[];
-  toast(`Page ${newPg} loaded. Click Process Drawing to detect dimensions.`);
+  allDims=[]; // Clear dims — each page needs its own processing
+  render(); updateList(); updateStats();
+  toast(`Page ${newPg} of ${totalPages}. Click Process Drawing to detect dimensions on this page.`);
 }
 
 // ── PLACE MANUAL — no dimension detection, click anywhere ─────────────────
@@ -1242,18 +1252,20 @@ function getClaudeKey(){return document.getElementById('claudeKey').value.trim()
 function updateList() {
   const list=document.getElementById('blist');
   list.innerHTML='';
-  document.getElementById('bc').textContent=balloons.length;
-  balloons.forEach((b,i)=>{
+  const pageBalloons=balloons.filter(b=>(b.page||1)===currentPage);
+  document.getElementById('bc').textContent=`${pageBalloons.length}/${balloons.length}`;
+  pageBalloons.forEach((b)=>{
+    const realIdx=balloons.indexOf(b);
     const el=document.createElement('div'); el.className='bi';
-    const pgLabel=totalPages>1?`<span style="font-size:9px;color:#aaa;margin-left:2px">P${b.page||1}</span>`:'';
-    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt">${b.text}${pgLabel}</div><div style="cursor:pointer;color:#c92a2a;font-size:14px;padding:2px 4px" onclick="deleteBalloon(${i})" title="Delete">✕</div>`;
+    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt">${b.text}</div><div style="cursor:pointer;color:#c92a2a;font-size:14px;padding:2px 4px" onclick="deleteBalloon(${realIdx})" title="Delete">✕</div>`;
     list.appendChild(el);
   });
   list.scrollTop=list.scrollHeight;
 }
 
 function updateStats() {
-  document.getElementById('sv1').textContent=balloons.length;
+  const pageBalloons=balloons.filter(b=>(b.page||1)===currentPage);
+  document.getElementById('sv1').textContent=pageBalloons.length;
   document.getElementById('sv2').textContent=allDims.length;
   document.getElementById('sv3').textContent=boxCount;
 }
