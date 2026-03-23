@@ -1216,9 +1216,6 @@ function renumberAll() {
   toast(`✓ Renumbered: ${pageBals.length} balloons on this page (${startNum}-${startNum+pageBals.length-1})`);
 }
 
-// ── DELETE BALLOON ────────────────────────────────────────────────────────
-function deleteBalloon(idx) {
-
 // ── BALLOON ALL — place on every unballooned dimension ────────────────────
 function balloonAll(){
   if(!allDims.length){toast('Process drawing first');return;}
@@ -1471,7 +1468,7 @@ select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11p
 
   html+=`</tbody></table>
 <div class="footer">MechProTools FAI Report · ${new Date().toISOString().slice(0,10)}</div>
-<script>
+<` + `script>
 function addRow(){
   const t=document.querySelector('#faiTable tbody');const n=t.rows.length+1;const r=t.insertRow();
   r.innerHTML='<td style="text-align:center"><div class="bal-num">'+n+'</div></td>'
