@@ -87,6 +87,12 @@ input.inp:focus{border-color:var(--acc)}
   </div>
 
   <div class="ss">
+    <h3>Claude AI (for FAI Report)</h3>
+    <input class="inp" id="claudeKey" type="password" placeholder="sk-ant-api03-..." style="font-size:11px">
+    <div style="font-size:10px;color:#888;margin-top:3px">Paste your API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--acc)">console.anthropic.com</a> · stored locally only</div>
+  </div>
+
+  <div class="ss">
     <h3>Drawing</h3>
     <div class="upz" id="upz">
       <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png">
@@ -760,7 +766,7 @@ function placeOnClick(dx,dy) {
   } else toast('No blank space found near that dimension');
 }
 
-// ── PROCESS DRAWING (API call) ─────────────────────────────────────────────
+// ── PROCESS DRAWING (2-pass: Document AI + Claude Vision) ─────────────────
 async function processDrawing() {
   const cfUrl=document.getElementById('cfUrl').value.trim();
   if(!cfUrl){toast('Please enter your Cloud Function URL');return;}
@@ -768,7 +774,8 @@ async function processDrawing() {
   document.getElementById('procBtn').disabled=true;
   document.getElementById('procSpin').className='spin on';
   document.getElementById('procTxt').textContent='Processing...';
-  showP(true); setP(15,'Sending to Document AI...');
+  showP(true); setP(10,'Preparing drawing...');
+  
   try {
     // Fresh copy to avoid detached ArrayBuffer issues
     const safeBuf = rawBytes.slice(0);
@@ -777,7 +784,9 @@ async function processDrawing() {
     for(let i=0;i<bytes.length;i+=8192)
       bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+8192,bytes.length)));
     const b64=btoa(bin);
-    setP(40,'Document AI reading drawing...');
+    
+    // ═══════ PASS 1: Document AI (fast OCR) ═══════
+    setP(20,'Pass 1: Document AI reading drawing...');
     const resp=await fetch(cfUrl,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -786,13 +795,122 @@ async function processDrawing() {
     if(!resp.ok) throw new Error(`Server error: ${resp.status}`);
     const data=await resp.json();
     if(!data.success) throw new Error(data.error||'Processing failed');
-    allDims=data.dimensions||[];
-    setP(100,`Found ${allDims.length} dimensions!`);
-    setTimeout(()=>showP(false),1200);
-    document.getElementById('dimCount').textContent=`${allDims.length} dims loaded`;
+    let docAIDims=data.dimensions||[];
+    setP(50,`Pass 1: Found ${docAIDims.length} dimensions`);
+    
+    // ═══════ PASS 2: Claude Vision AI (catch missed ones) ═══════
+    const apiKey=getClaudeKey();
+    let claudeDims=[];
+    
+    if(apiKey){
+      setP(60,'Pass 2: Claude AI scanning for missed dimensions...');
+      try{
+        // Create compressed image for Claude
+        const tmp=document.createElement('canvas');
+        const maxW=2000;
+        const ratio=Math.min(maxW/W,1);
+        tmp.width=Math.round(W*ratio);tmp.height=Math.round(H*ratio);
+        tmp.getContext('2d').drawImage(workCanvas,0,0,tmp.width,tmp.height);
+        const imgB64=tmp.toDataURL('image/jpeg',0.8).split(',')[1];
+        
+        // Build list of already-found dimensions for Claude
+        const foundList=docAIDims.map(d=>`"${d.text}" at (${d.cx},${d.cy})`).join(', ');
+        
+        const claudeResp=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'x-api-key':apiKey,
+            'anthropic-version':'2023-06-01',
+            'anthropic-dangerous-direct-browser-access':'true'
+          },
+          body:JSON.stringify({
+            model:'claude-sonnet-4-20250514',
+            max_tokens:4000,
+            messages:[{role:'user',content:[
+              {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
+              {type:'text',text:`You are analyzing an engineering drawing (${tmp.width}x${tmp.height} pixels) to find ALL dimension callouts.
+
+Document AI already found these dimensions:
+${foundList}
+
+Find ALL dimensions that Document AI MISSED. Look for:
+- Linear dimensions (like 25.4, 168.28, 292.1)
+- Diameters (⌀6.31, ⌀31.75)
+- Radii (R12.7, R0.8, R6.4)
+- Angles (45°, 30°)
+- Tolerances (±0.2, 0.15)
+- Thread callouts (M10x1.5)
+- Chamfers (CH 0.8x45°)
+- Features (2 PLACES, 3 BOSSES)
+- Any numeric dimension on the drawing not in the list above
+
+Return ONLY a JSON array (no markdown, no backticks, no explanation):
+[{"text":"25.4","cx":450,"cy":320,"w":60,"h":20,"type":"linear"},...]
+
+Where cx,cy are the CENTER coordinates of the dimension text in the image (${tmp.width}x${tmp.height} pixels).
+Scale cx,cy to match the image dimensions I gave.
+If no missed dimensions, return [].`}
+            ]}]
+          })
+        });
+        const claudeData=await claudeResp.json();
+        const claudeText=claudeData.content.map(c=>c.text||'').join('');
+        const cleaned=claudeText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+        
+        if(cleaned&&cleaned!=='[]'){
+          const rawClaudeDims=JSON.parse(cleaned);
+          // Scale Claude coordinates back to full drawing size
+          const scaleBack=1/ratio;
+          claudeDims=rawClaudeDims.map(d=>({
+            ...d,
+            cx:Math.round(d.cx*scaleBack),
+            cy:Math.round(d.cy*scaleBack),
+            w:Math.round((d.w||50)*scaleBack),
+            h:Math.round((d.h||20)*scaleBack),
+            confidence:0.85,
+            source:'claude'
+          }));
+        }
+        setP(80,`Pass 2: Claude found ${claudeDims.length} additional dimensions`);
+      }catch(e2){
+        console.warn('Claude pass failed (continuing with Doc AI only):',e2);
+        setP(80,'Pass 2: Claude unavailable — using Document AI only');
+      }
+    } else {
+      setP(80,'Pass 2: Skipped (no Claude API key)');
+    }
+    
+    // ═══════ MERGE & DEDUPLICATE ═══════
+    setP(90,'Merging results...');
+    // Mark Document AI dims
+    docAIDims.forEach(d=>d.source=d.source||'docai');
+    
+    // Deduplicate: don't add Claude dims that are too close to existing Doc AI dims
+    const BR_dedup=PX_PER_MM*5; // 5mm dedup radius
+    const newFromClaude=claudeDims.filter(cd=>{
+      return !docAIDims.some(dd=>
+        Math.hypot(cd.cx-dd.cx,cd.cy-dd.cy)<BR_dedup &&
+        (cd.text===dd.text || Math.abs(cd.cx-dd.cx)<BR_dedup*0.5)
+      );
+    });
+    
+    // Merge
+    allDims=[...docAIDims,...newFromClaude];
+    
+    // Re-sort and re-number
+    allDims.sort((a,b)=>(Math.floor(a.cy/150)*10000+a.cx)-(Math.floor(b.cy/150)*10000+b.cx));
+    allDims.forEach((d,i)=>d.id=i+1);
+    
+    const docCount=docAIDims.length;
+    const claudeCount=newFromClaude.length;
+    
+    setP(100,`Done! ${allDims.length} total (${docCount} DocAI + ${claudeCount} Claude AI)`);
+    setTimeout(()=>showP(false),2000);
+    document.getElementById('dimCount').textContent=`${allDims.length} dims (${docCount}+${claudeCount}✦)`;
     document.getElementById('statsDiv').style.display='block';
     updateStats();
-    toast(`✓ ${allDims.length} dimensions detected — draw boxes!`);
+    toast(`✓ ${allDims.length} dimensions detected — ${docCount} from DocAI, ${claudeCount} from Claude AI. Draw boxes!`);
   } catch(e) {
     showP(false);
     toast('Error: '+e.message);
@@ -928,6 +1046,8 @@ async function exportFAI() {
   const useAI=confirm('Use AI to auto-identify dimensions and fill FAI data?\n\n(Uses Claude API — takes 10-20 seconds)\n\nClick Cancel for manual FAI report.');
   
   if(useAI && workCanvas){
+    const apiKey=getClaudeKey();
+    if(!apiKey){toast('Enter your Claude API key in the sidebar first');return;}
     toast('AI analyzing drawing...');
     try{
       // Create a smaller image for AI analysis
@@ -943,7 +1063,7 @@ async function exportFAI() {
       
       const resp=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
         body:JSON.stringify({
           model:'claude-sonnet-4-20250514',
           max_tokens:4000,
@@ -1093,6 +1213,18 @@ function downloadCSV(){
   window.open(URL.createObjectURL(blob),'_blank');
   toast('FAI report opened in new tab ✓');
 }
+
+// ── CLAUDE API KEY (saved in localStorage) ────────────────────────────────
+(function initKey(){
+  const saved=localStorage.getItem('mpt_claude_key');
+  if(saved){document.getElementById('claudeKey').value=saved;document.getElementById('claudeKey').nextElementSibling.innerHTML='✓ Key saved · <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--acc)">console.anthropic.com</a>';}
+})();
+document.getElementById('claudeKey').addEventListener('change',function(){
+  localStorage.setItem('mpt_claude_key',this.value.trim());
+  if(this.value.trim())this.nextElementSibling.innerHTML='✓ Key saved · <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--acc)">console.anthropic.com</a>';
+});
+
+function getClaudeKey(){return document.getElementById('claudeKey').value.trim()||localStorage.getItem('mpt_claude_key')||'';}
 
 // ── UI HELPERS ─────────────────────────────────────────────────────────────
 function updateList() {
