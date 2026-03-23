@@ -768,6 +768,47 @@ function placeOnClick(dx,dy) {
   } else toast('No blank space found near that dimension');
 }
 
+// ── REPAIR MALFORMED JSON FROM CLAUDE ─────────────────────────────────────
+function repairJSON(s){
+  try{ JSON.parse(s); return s; }catch(e){}
+  // Fix: "cx":674,431 → "cx":674,"cy":431 (missing key name)
+  s=s.replace(/"cx"\s*:\s*(\d+)\s*,\s*(\d+)/g,'"cx":$1,"cy":$2');
+  // Fix: "cy":320,55 → "cy":320,"w":55 
+  s=s.replace(/"cy"\s*:\s*(\d+)\s*,\s*(\d+)/g,'"cy":$1,"w":$2');
+  // Fix: trailing commas before } or ]
+  s=s.replace(/,\s*([}\]])/g,'$1');
+  // Fix: single quotes to double quotes for keys
+  s=s.replace(/'/g,'"');
+  // Fix: unquoted keys like {text:"hello"} → {"text":"hello"}
+  s=s.replace(/(\{|,)\s*([a-zA-Z_]\w*)\s*:/g,'$1"$2":');
+  // Fix: NaN or undefined values
+  s=s.replace(/:\s*(NaN|undefined)\b/g,':"?"');
+  // Try to parse individual objects if full array fails
+  try{ JSON.parse(s); return s; }catch(e2){
+    // Last resort: extract individual objects and rebuild array
+    const objs=[];
+    const re=/\{[^{}]*\}/g;
+    let m;
+    while((m=re.exec(s))!==null){
+      try{
+        const obj=JSON.parse(m[0]);
+        if(obj.text && obj.cx!==undefined && obj.cy!==undefined) objs.push(obj);
+      }catch(e3){
+        // Try to fix this individual object
+        let fixed=m[0];
+        fixed=fixed.replace(/"cx"\s*:\s*(\d+)\s*,\s*(\d+)/g,'"cx":$1,"cy":$2');
+        fixed=fixed.replace(/,\s*\}/g,'}');
+        try{ const obj2=JSON.parse(fixed); if(obj2.text) objs.push(obj2); }catch(e4){}
+      }
+    }
+    if(objs.length>0){
+      console.log(`Repaired JSON: recovered ${objs.length} objects from malformed response`);
+      return JSON.stringify(objs);
+    }
+    return '[]';
+  }
+}
+
 // ── PROCESS DRAWING (2-pass: Document AI + Claude Vision) ─────────────────
 async function processDrawing() {
   const cfUrl=document.getElementById('cfUrl').value.trim();
@@ -949,6 +990,8 @@ If truly no missed dimensions, return []. But be thorough — engineering drawin
         } else {
           cleaned='[]';
         }
+        // Repair common Claude JSON errors
+        cleaned=repairJSON(cleaned);
         
         if(cleaned&&cleaned!=='[]'){
           const rawClaudeDims=JSON.parse(cleaned);
@@ -1159,6 +1202,7 @@ Return ONLY a JSON array mapping old number to new number (no markdown):
       const rStart=cleaned.indexOf('[');
       const rEnd=cleaned.lastIndexOf(']');
       if(rStart!==-1&&rEnd>rStart) cleaned=cleaned.substring(rStart,rEnd+1);
+      cleaned=repairJSON(cleaned);
       const mapping=JSON.parse(cleaned);
       
       // Apply mapping
@@ -1309,6 +1353,7 @@ Return ONLY a JSON array (no markdown, no backticks):
       const faiArrEnd=cleaned.lastIndexOf(']');
       if(faiArrStart!==-1 && faiArrEnd>faiArrStart) cleaned=cleaned.substring(faiArrStart,faiArrEnd+1);
       else cleaned='[]';
+      cleaned=repairJSON(cleaned);
       aiData=JSON.parse(cleaned);
       toast(`AI identified ${aiData.length} dimensions ✓`);
     }catch(e){
