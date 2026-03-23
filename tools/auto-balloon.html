@@ -832,28 +832,33 @@ async function processDrawing() {
             max_tokens:4000,
             messages:[{role:'user',content:[
               {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
-              {type:'text',text:`You are analyzing an engineering drawing (${tmp.width}x${tmp.height} pixels) to find ALL dimension callouts.
+              {type:'text',text:`You are analyzing an engineering drawing (${tmp.width}x${tmp.height} pixels). Find ALL dimension callouts that were MISSED by OCR.
 
-Document AI already found these dimensions:
+ALREADY FOUND by OCR (DO NOT repeat these):
 ${foundList}
 
-Find ALL dimensions that Document AI MISSED. Look for:
-- Linear dimensions (like 25.4, 168.28, 292.1)
-- Diameters (⌀6.31, ⌀31.75)
-- Radii (R12.7, R0.8, R6.4)
+FIND ONLY dimensions that are NOT in the list above. Look carefully for:
+- Linear dimensions with numbers (25.4, 168.28, 0.8)
+- Diameter symbols (⌀6.31, Ø12.7)
+- Radius callouts (R12.7, R0.8, R6.4, R3.2)
+- Tolerances (±0.1, ±0.05)
+- Thread callouts (M10x1.5, M8x1.25)
 - Angles (45°, 30°)
-- Tolerances (±0.2, 0.15)
-- Thread callouts (M10x1.5)
-- Chamfers (CH 0.8x45°)
-- Features (2 PLACES, 3 BOSSES)
-- Any numeric dimension on the drawing not in the list above
+- Chamfers (CH 0.8x45°, 0.5x45°)
+- Feature counts (2 PLACES, 3 BOSSES, 4 HOLES)
+- GD&T symbols and values
 
-Return ONLY a JSON array (no markdown, no backticks, no explanation):
+CRITICAL RULES:
+1. cx,cy MUST be the EXACT center of the dimension TEXT in pixels (image is ${tmp.width}x${tmp.height})
+2. Do NOT include text from the title block (bottom-right area of drawing)
+3. Do NOT include notes, revision history, or drawing borders
+4. Do NOT include section labels (SECTION A-A etc.) unless they contain dimensions
+5. ONLY include dimensions/features that have actual numeric values or measurement callouts
+6. If unsure about a coordinate, SKIP it — wrong coordinates are worse than missing dimensions
+
+Return ONLY a JSON array (no markdown, no backticks):
 [{"text":"25.4","cx":450,"cy":320,"w":60,"h":20,"type":"linear"},...]
-
-Where cx,cy are the CENTER coordinates of the dimension text in the image (${tmp.width}x${tmp.height} pixels).
-Scale cx,cy to match the image dimensions I gave.
-If no missed dimensions, return [].`}
+If no missed dimensions found, return []`}
             ]}]
           })
         });
@@ -870,7 +875,18 @@ If no missed dimensions, return [].`}
           const rawClaudeDims=JSON.parse(cleaned);
           // Scale Claude coordinates back to full drawing size
           const scaleBack=1/ratio;
-          claudeDims=rawClaudeDims.map(d=>({
+          claudeDims=rawClaudeDims.filter(d=>{
+            // Validate coordinates are within image bounds
+            if(!d.cx||!d.cy||d.cx<0||d.cy<0||d.cx>tmp.width||d.cy>tmp.height) return false;
+            // Skip dims in title block area (bottom 12%, right 25% corner)
+            const inTitleBlock=(d.cy>tmp.height*0.85 && d.cx>tmp.width*0.5);
+            if(inTitleBlock) return false;
+            // Skip dims in revision/border area (top 5%, left 8%)
+            if(d.cy<tmp.height*0.05 || d.cx<tmp.width*0.04) return false;
+            // Must have text
+            if(!d.text||d.text.trim().length===0) return false;
+            return true;
+          }).map(d=>({
             ...d,
             cx:Math.round(d.cx*scaleBack),
             cy:Math.round(d.cy*scaleBack),
@@ -1003,29 +1019,99 @@ function placeManual(dx,dy) {
   toast(`✓ Manual balloon #${num} placed`);
 }
 
-// ── RENUMBER ALL — sequential across all pages ───────────────────────────
-function renumberAll() {
+// ── RENUMBER ALL — AI-powered or position-based ──────────────────────────
+async function renumberAll() {
   if(!balloons.length){toast('No balloons to renumber');return;}
-  // Group by page, within each page sort by position
+  
+  const apiKey=getClaudeKey();
+  
+  if(apiKey && workCanvas){
+    // AI-powered renumbering using Claude
+    toast('🤖 AI renumbering...');
+    try{
+      const tmp=document.createElement('canvas');
+      const maxW=1500;
+      const ratio=Math.min(maxW/W,1);
+      tmp.width=Math.round(W*ratio);tmp.height=Math.round(H*ratio);
+      const tc=tmp.getContext('2d');
+      tc.drawImage(workCanvas,0,0,tmp.width,tmp.height);
+      // Draw current balloons on the image for Claude to see
+      const pageBals=balloons.filter(b=>(b.page||1)===currentPage);
+      pageBals.forEach(b=>{
+        const sx=b.bx*ratio,sy=b.by*ratio;
+        tc.fillStyle='#fff';tc.beginPath();tc.arc(sx,sy,12,0,Math.PI*2);tc.fill();
+        tc.strokeStyle='#0A1EA0';tc.lineWidth=2;tc.beginPath();tc.arc(sx,sy,12,0,Math.PI*2);tc.stroke();
+        tc.fillStyle='#0A1EA0';tc.font='bold 11px sans-serif';tc.textAlign='center';tc.textBaseline='middle';
+        tc.fillText(String(b.num),sx,sy);
+      });
+      const imgB64=tmp.toDataURL('image/jpeg',0.8).split(',')[1];
+      
+      const balInfo=pageBals.map(b=>`#${b.num}: "${b.text}" at tip(${Math.round(b.tipx*ratio)},${Math.round(b.tipy*ratio)})`).join('\n');
+      
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',max_tokens:2000,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
+            {type:'text',text:`This engineering drawing has ${pageBals.length} numbered balloons. Renumber them in logical reading order following engineering conventions:
+
+Current balloons:
+${balInfo}
+
+Rules for renumbering:
+1. Start from top-left of the MAIN VIEW, go left-to-right, top-to-bottom
+2. Group balloons that belong to the same view/section together
+3. Section views (Section A-A, B-B etc.) should be numbered after the main view
+4. Detail views numbered after section views
+5. Notes balloons (if any) numbered last
+6. Sequential 1,2,3... with no gaps
+
+Return ONLY a JSON array mapping old number to new number (no markdown):
+[{"old":1,"new":3},{"old":2,"new":1},...]`}
+          ]}]
+        })
+      });
+      const data=await resp.json();
+      if(data.error) throw new Error(data.error.message);
+      const text=data.content.map(c=>c.text||'').join('');
+      const cleaned=text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      const mapping=JSON.parse(cleaned);
+      
+      // Apply mapping
+      mapping.forEach(m=>{
+        const bal=pageBals.find(b=>b.num===m.old);
+        if(bal) bal.num=m.new;
+      });
+      
+      render();updateList();updateStats();
+      toast(`✓ AI renumbered ${pageBals.length} balloons in logical order`);
+      return;
+    }catch(e){
+      console.warn('AI renumber failed, using position-based:',e);
+      toast('AI renumber failed — using position sort');
+    }
+  }
+  
+  // Fallback: position-based renumbering
   const pages={};
   balloons.forEach(b=>{
     const pg=b.page||1;
     if(!pages[pg]) pages[pg]=[];
     pages[pg].push(b);
   });
-  // Sort pages, then within each page sort top-to-bottom, left-to-right
   const pageNums=Object.keys(pages).map(Number).sort((a,b)=>a-b);
   let counter=1;
   const reordered=[];
   pageNums.forEach(pg=>{
     const pageBalloons=pages[pg];
-    // Sort by row (cy band) then by cx
     pageBalloons.sort((a,b)=>{
-      const rowSize=Math.max(100,PX_PER_MM*15); // ~15mm row bands
-      const rowA=Math.floor((a.ty||a.tipy||0)/rowSize);
-      const rowB=Math.floor((b.ty||b.tipy||0)/rowSize);
+      const rowSize=Math.max(100,PX_PER_MM*15);
+      const rowA=Math.floor((a.tipy||0)/rowSize);
+      const rowB=Math.floor((b.tipy||0)/rowSize);
       if(rowA!==rowB) return rowA-rowB;
-      return (a.tx||a.tipx||0)-(b.tx||b.tipx||0);
+      return (a.tipx||0)-(b.tipx||0);
     });
     pageBalloons.forEach(b=>{
       b.num=counter++;
@@ -1034,8 +1120,8 @@ function renumberAll() {
   });
   balloons.length=0;
   reordered.forEach(b=>balloons.push(b));
-  render(); updateList(); updateStats();
-  toast(`✓ Renumbered 1 to ${balloons.length} across ${pageNums.length} page(s)`);
+  render();updateList();updateStats();
+  toast(`✓ Renumbered 1 to ${balloons.length} by position`);
 }
 
 // ── DELETE BALLOON ────────────────────────────────────────────────────────
@@ -1058,18 +1144,30 @@ async function exportFAI() {
   if(useAI && workCanvas){
     const apiKey=getClaudeKey();
     if(!apiKey){toast('Enter your Claude API key in the sidebar first');return;}
-    toast('AI analyzing drawing...');
+    toast('AI analyzing drawing with balloons...');
     try{
-      // Create a smaller image for AI analysis
+      // Create image WITH balloons drawn on it so Claude can see exactly what each balloon points to
       const tmp=document.createElement('canvas');
       const maxW=2000;
       const ratio=Math.min(maxW/W,1);
       tmp.width=Math.round(W*ratio);tmp.height=Math.round(H*ratio);
-      tmp.getContext('2d').drawImage(workCanvas,0,0,tmp.width,tmp.height);
+      const tc=tmp.getContext('2d');
+      tc.drawImage(workCanvas,0,0,tmp.width,tmp.height);
+      // Draw balloons on the image
+      const pageBals=sorted.filter(b=>(b.page||1)===currentPage);
+      pageBals.forEach(b=>{
+        const sx=b.bx*ratio,sy=b.by*ratio,tx=b.tipx*ratio,ty=b.tipy*ratio;
+        tc.strokeStyle='#0A1EA0';tc.lineWidth=2;
+        tc.beginPath();tc.moveTo(tx,ty);tc.lineTo(sx,sy);tc.stroke();
+        tc.fillStyle='#fff';tc.beginPath();tc.arc(sx,sy,14,0,Math.PI*2);tc.fill();
+        tc.strokeStyle='#0A1EA0';tc.lineWidth=2;tc.beginPath();tc.arc(sx,sy,14,0,Math.PI*2);tc.stroke();
+        tc.fillStyle='#0A1EA0';tc.font='bold 12px sans-serif';tc.textAlign='center';tc.textBaseline='middle';
+        tc.fillText(String(b.num),sx,sy);
+      });
       const imgB64=tmp.toDataURL('image/jpeg',0.8).split(',')[1];
       
       // Build balloon position list for AI
-      const balloonInfo=sorted.map(b=>`Balloon #${b.num}: tip at (${Math.round(b.tipx*ratio)},${Math.round(b.tipy*ratio)}), text="${b.text||'?'}"`).join('\n');
+      const imgB64Ready=imgB64;
       
       const resp=await fetch('https://api.anthropic.com/v1/messages',{
         method:'POST',
@@ -1079,22 +1177,23 @@ async function exportFAI() {
           max_tokens:4000,
           messages:[{role:'user',content:[
             {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
-            {type:'text',text:`This is an engineering drawing with numbered balloons. For each balloon, identify the dimension it points to and provide FAI inspection data.
+            {type:'text',text:`This is an engineering drawing with numbered balloons (blue circles with numbers). Each balloon has a leader line pointing to a specific dimension or feature on the drawing.
 
-Balloon positions:
-${balloonInfo}
+For EACH numbered balloon, identify EXACTLY what dimension/feature its leader line points to. Look at the arrow tip — that's where the dimension is.
 
-For each balloon, respond in JSON array format ONLY (no markdown, no backticks):
-[{"num":1,"dimension":"25.4","type":"linear","nominal":"25.4","tol_plus":"0.2","tol_minus":"0.2","notes":""},...]
+For each balloon, provide:
+- "num": the balloon number shown inside the circle
+- "dimension": the EXACT text of the dimension value the leader points to (e.g., "25.4", "⌀12.7", "R3.2", "M10x1.5")
+- "type": one of: linear, diameter, radius, angle, thread, chamfer, tolerance, feature, gdt, note
+- "nominal": the numeric nominal value (just the number)
+- "tol_plus": positive tolerance if shown (e.g., "0.1") or empty string
+- "tol_minus": negative tolerance if shown (e.g., "0.1") or empty string  
+- "notes": any additional info (e.g., "2 PLACES", "TYP", "BOTH SIDES", section reference)
 
-Rules:
-- "dimension" = the actual dimension text value the balloon points to
-- "type" = linear/diameter/radius/angle/thread/tolerance/note
-- "nominal" = the nominal value
-- "tol_plus" and "tol_minus" = tolerance values if visible (empty string if not shown)
-- "notes" = any relevant notes (e.g., "2 PLACES", "OPTIONAL", GD&T callout)
-- If you can't identify a balloon's dimension, use the "text" value provided
-- Return ONLY the JSON array, nothing else`}
+Return ONLY a JSON array (no markdown, no backticks):
+[{"num":1,"dimension":"25.4","type":"linear","nominal":"25.4","tol_plus":"0.1","tol_minus":"0.1","notes":""},...]
+
+IMPORTANT: Match balloon numbers EXACTLY as shown in the image. If a balloon points to something you can't read clearly, use the best guess with "?" suffix.`}
           ]}]
         })
       });
@@ -1257,7 +1356,7 @@ function updateList() {
   pageBalloons.forEach((b)=>{
     const realIdx=balloons.indexOf(b);
     const el=document.createElement('div'); el.className='bi';
-    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt">${b.text}</div><div style="cursor:pointer;color:#c92a2a;font-size:14px;padding:2px 4px" onclick="deleteBalloon(${realIdx})" title="Delete">✕</div>`;
+    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt" style="flex:1;overflow:hidden;text-overflow:ellipsis">${b.text}</div><div style="cursor:pointer;color:#fff;background:#c92a2a;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0" onclick="event.stopPropagation();deleteBalloon(${realIdx})" title="Delete balloon ${b.num}">✕</div>`;
     list.appendChild(el);
   });
   list.scrollTop=list.scrollHeight;
