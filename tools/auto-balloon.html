@@ -939,7 +939,16 @@ If truly no missed dimensions, return []. But be thorough — engineering drawin
         }
         const claudeText=claudeData.content.map(c=>c.text||'').join('');
         console.log('Claude raw text:',claudeText.substring(0,300));
-        const cleaned=claudeText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+        // Extract JSON array from response — Claude sometimes adds text before/after
+        let cleaned=claudeText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+        // Find the JSON array within the text
+        const arrStart=cleaned.indexOf('[');
+        const arrEnd=cleaned.lastIndexOf(']');
+        if(arrStart!==-1 && arrEnd>arrStart){
+          cleaned=cleaned.substring(arrStart,arrEnd+1);
+        } else {
+          cleaned='[]';
+        }
         
         if(cleaned&&cleaned!=='[]'){
           const rawClaudeDims=JSON.parse(cleaned);
@@ -1146,7 +1155,10 @@ Return ONLY a JSON array mapping old number to new number (no markdown):
       const data=await resp.json();
       if(data.error) throw new Error(data.error.message);
       const text=data.content.map(c=>c.text||'').join('');
-      const cleaned=text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      let cleaned=text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      const rStart=cleaned.indexOf('[');
+      const rEnd=cleaned.lastIndexOf(']');
+      if(rStart!==-1&&rEnd>rStart) cleaned=cleaned.substring(rStart,rEnd+1);
       const mapping=JSON.parse(cleaned);
       
       // Apply mapping
@@ -1284,7 +1296,11 @@ Return ONLY a JSON array (no markdown, no backticks):
       const data=await resp.json();
       const aiText=data.content.map(c=>c.text||'').join('');
       // Parse JSON - handle possible markdown wrapping
-      const cleaned=aiText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      let cleaned=aiText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      const faiArrStart=cleaned.indexOf('[');
+      const faiArrEnd=cleaned.lastIndexOf(']');
+      if(faiArrStart!==-1 && faiArrEnd>faiArrStart) cleaned=cleaned.substring(faiArrStart,faiArrEnd+1);
+      else cleaned='[]';
       aiData=JSON.parse(cleaned);
       toast(`AI identified ${aiData.length} dimensions ✓`);
     }catch(e){
