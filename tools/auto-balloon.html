@@ -131,9 +131,9 @@ input.inp:focus{border-color:var(--acc)}
     </div>
     <div class="sr">
       <span class="sl">Max leader</span>
-      <input type="range" id="lmx" min="10" max="50" value="30" step="1"
+      <input type="range" id="lmx" min="20" max="80" value="50" step="1"
         oninput="document.getElementById('lmxv').textContent=this.value+'mm'">
-      <span class="sv" id="lmxv">30mm</span>
+      <span class="sv" id="lmxv">50mm</span>
     </div>
   </div>
 
@@ -316,15 +316,12 @@ function findBalloonPos(dim, placed) {
 
   // Text bounding box edges (with small padding)
   const PAD = Math.round(PX_PER_MM * 1.0);
-  const tx1 = tcx - tw/2 - PAD;
-  const ty1 = tcy - th/2 - PAD;
-  const tx2 = tcx + tw/2 + PAD;
-  const ty2 = tcy + th/2 + PAD;
 
-  // Minimum distance from text CENTER to balloon CENTER
-  // = balloon radius + half text diagonal + gap
+  // Minimum distance: balloon CENTER must be at least 3cm from dimension text CENTER
   const textHalfDiag = Math.hypot(tw/2 + PAD, th/2 + PAD);
-  const minFromText  = BR + textHalfDiag + Math.round(PX_PER_MM * 2);
+  const MIN_CM = 3; // 3mm minimum gap
+  const minFromText  = Math.max(BR + textHalfDiag + Math.round(PX_PER_MM * 5),
+                                Math.round(PX_PER_MM * MIN_CM));
 
   // Search outward from text EDGE in 8 directions
   const directions = [
@@ -400,43 +397,84 @@ function tipAtEdge(tcx, tcy, tw, th, bx, by) {
   return     [Math.round(tcx - dx*ttb),                 Math.round(tcy - Math.sign(dy)*hh)];
 }
 
-// ── DRAW ONE BALLOON ───────────────────────────────────────────────────────
+// ── DRAW ONE BALLOON — orthogonal leader ──────────────────────────────────
 function drawBalloon(c, bx, by, tipx, tipy, num, BR) {
-  const LW  = Math.max(3, Math.round(PX_PER_MM * 0.5));
-  const DOT = Math.max(5, Math.round(PX_PER_MM * 0.8));
+  const LW  = Math.max(3, Math.round(PX_PER_MM * 0.55));
+  const DOT = Math.max(5, Math.round(PX_PER_MM * 0.75));
   const FS  = Math.round(BR * 1.12);
 
-  const dx = bx-tipx, dy = by-tipy;
-  const dist = Math.hypot(dx,dy);
+  const dx = bx - tipx;
+  const dy = by - tipy;
+  const dist = Math.hypot(dx, dy);
 
   if(dist > 1) {
-    // Leader line from tip to balloon edge
-    const ex = bx-(dx/dist)*(BR+1);
-    const ey = by-(dy/dist)*(BR+1);
-    c.strokeStyle = BLUE; c.lineWidth = LW;
-    c.beginPath(); c.moveTo(tipx,tipy); c.lineTo(ex,ey); c.stroke();
+    c.strokeStyle = BLUE;
+    c.lineWidth   = LW;
+    c.beginPath();
 
-    // Arrowhead at tip
-    const nx=(tipx-bx)/dist, ny=(tipy-by)/dist, px=-ny, py=nx;
-    const al=BR*.40, aw=BR*.20;
+    // Orthogonal leader: tip → elbow → balloon edge
+    // Elbow is at same X as balloon, same Y as tip (horizontal then vertical)
+    // OR same Y as balloon, same X as tip — whichever gives cleaner look
+    const elbowX = bx;
+    const elbowY = tipy;
+
+    // Check if this elbow is in blank space, else use other option
+    const elbowX2 = tipx;
+    const elbowY2 = by;
+
+    // Pick elbow based on dominant direction
+    let ex, ey;
+    if(Math.abs(dx) >= Math.abs(dy)) {
+      // More horizontal — elbow at (balloon_x, tip_y)
+      ex = bx; ey = tipy;
+    } else {
+      // More vertical — elbow at (tip_x, balloon_y)
+      ex = tipx; ey = by;
+    }
+
+    // Line from tip to elbow
+    c.moveTo(tipx, tipy);
+    c.lineTo(ex, ey);
+    // Line from elbow to balloon edge
+    const bdx = bx-ex, bdy = by-ey;
+    const bdist = Math.hypot(bdx,bdy);
+    if(bdist > 1) {
+      const bex = bx-(bdx/bdist)*(BR+1);
+      const bey = by-(bdy/bdist)*(BR+1);
+      c.lineTo(bex, bey);
+    }
+    c.stroke();
+
+    // Arrowhead at tip pointing toward elbow
+    const nx = (tipx-ex)/Math.max(1,Math.abs(tipx-ex)||1);
+    const ny2 = (tipy-ey)/Math.max(1,Math.abs(tipy-ey)||1);
+    const adx = ex-tipx, ady = ey-tipy;
+    const alen = Math.hypot(adx,ady)||1;
+    const anx  = adx/alen, any = ady/alen;
+    const apx  = -any,     apy = anx;
+    const al = BR*.42, aw = BR*.22;
     c.fillStyle=BLUE; c.beginPath();
-    c.moveTo(tipx,tipy);
-    c.lineTo(tipx-nx*al+px*aw, tipy-ny*al+py*aw);
-    c.lineTo(tipx-nx*al-px*aw, tipy-ny*al-py*aw);
+    c.moveTo(tipx, tipy);
+    c.lineTo(tipx-anx*al+apx*aw, tipy-any*al+apy*aw);
+    c.lineTo(tipx-anx*al-apx*aw, tipy-any*al-apy*aw);
     c.closePath(); c.fill();
+
+    // Small dot at elbow for professional look
+    c.fillStyle=BLUE;
+    c.beginPath(); c.arc(ex,ey,Math.max(3,LW),0,Math.PI*2); c.fill();
   }
 
   // Solid dot at tip
   c.fillStyle=BLUE;
   c.beginPath(); c.arc(tipx,tipy,DOT,0,Math.PI*2); c.fill();
 
-  // Balloon circle — white fill, blue border
+  // Balloon circle
   c.fillStyle=WHITE;
   c.beginPath(); c.arc(bx,by,BR,0,Math.PI*2); c.fill();
   c.strokeStyle=BLUE; c.lineWidth=Math.max(3,LW*1.2);
   c.beginPath(); c.arc(bx,by,BR,0,Math.PI*2); c.stroke();
 
-  // Number centred in balloon
+  // Number
   c.fillStyle=BLUE;
   c.font=`bold ${FS}px 'Segoe UI',sans-serif`;
   c.textAlign='center'; c.textBaseline='middle';
