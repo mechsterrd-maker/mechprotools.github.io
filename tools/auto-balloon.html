@@ -42,7 +42,7 @@ input.inp:focus{border-color:var(--acc)}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:.4rem 0}
 .sbox{background:#f5f5f0;border-radius:5px;padding:5px;text-align:center}
 .sbox .v{font-size:.95rem;font-weight:700;color:var(--acc)}.sbox .l{font-size:9px;color:#888}
-.blist{flex:1;overflow-y:auto}
+.blist{overflow-y:auto;max-height:250px;min-height:120px;border:1px solid #e0e0e0;border-radius:6px;margin:0 .5rem;background:#fafafa}
 .bi{display:flex;align-items:center;gap:6px;padding:7px .7rem;border-bottom:1px solid #eee;font-size:12px;cursor:pointer;min-height:32px}
 .bi:hover{background:#f0f5ff}
 .bnum{width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
@@ -154,6 +154,17 @@ input.inp:focus{border-color:var(--acc)}
       <div class="sbox"><div class="v" id="sv2">0</div><div class="l">Available</div></div>
       <div class="sbox"><div class="v" id="sv3">0</div><div class="l">Boxes</div></div>
     </div>
+  </div>
+
+  <div class="ss" style="padding-bottom:0">
+    <h3 style="display:flex;justify-content:space-between;align-items:center">
+      <span>Balloons (<span id="bc">0</span>)</span>
+      <span id="dimCount" style="color:var(--acc);font-size:10px">0 dims loaded</span>
+    </h3>
+  </div>
+  <div class="blist" id="blist"></div>
+
+  <div class="ss" id="actionDiv" style="display:none">
     <button class="btn btn-suc" onclick="exportPDF()">⬇ Download PDF</button>
     <button class="btn btn-suc" style="background:#1565C0;margin-top:3px" onclick="exportFAI()">📋 Generate FAI Report</button>
     <button class="btn btn-out" style="background:#2e7d32;color:#fff;margin-top:3px" onclick="balloonAll()">🎯 Balloon ALL dimensions</button>
@@ -161,11 +172,6 @@ input.inp:focus{border-color:var(--acc)}
     <button class="btn btn-out" onclick="undoLast()">↩ Undo last box</button>
     <button class="btn btn-out" onclick="clearAll()">✕ Clear all</button>
   </div>
-
-  <div class="ss" style="padding-bottom:0">
-    <h3>Balloons (<span id="bc">0</span>) &nbsp;·&nbsp; <span id="dimCount" style="color:var(--acc);font-size:10px">0 dims loaded</span></h3>
-  </div>
-  <div class="blist" id="blist"></div>
 
 </div>
 
@@ -1094,6 +1100,7 @@ If truly no missed dimensions, return []. But be thorough — engineering drawin
     setTimeout(()=>showP(false),2000);
     document.getElementById('dimCount').textContent=`${allDims.length} dims (${docCount}+${claudeCount}✦)`;
     document.getElementById('statsDiv').style.display='block';
+    document.getElementById('actionDiv').style.display='block';
     updateStats();
     toast(`✓ ${allDims.length} dimensions detected — ${docCount} from DocAI, ${claudeCount} from Claude AI. Draw boxes!`);
   } catch(e) {
@@ -1560,7 +1567,7 @@ function setMode(m) {
 
 function undoLast(){if(!history.length){toast('Nothing to undo');return;}balloons=balloons.slice(0,history.pop());boxCount=Math.max(0,boxCount-1);render();updateList();updateStats();toast('Undone ✓');}
 function clearAll(){balloons=[];history=[];boxCount=0;render();updateList();updateStats();toast('Cleared');}
-function clearFile(){rawBytes=null;fi.value='';workCanvas=null;allDims=[];balloons=[];blankMap=null;document.getElementById('finfo').style.display='none';document.getElementById('upz').style.display='block';document.getElementById('cph').style.display='flex';document.getElementById('tb').style.display='none';document.getElementById('statsDiv').style.display='none';document.getElementById('blist').innerHTML='';document.getElementById('bc').textContent='0';document.getElementById('dimCount').textContent='0 dims loaded';document.getElementById('procBtn').disabled=true;ctx.clearRect(0,0,canvas.width,canvas.height);}
+function clearFile(){rawBytes=null;fi.value='';workCanvas=null;allDims=[];balloons=[];blankMap=null;document.getElementById('finfo').style.display='none';document.getElementById('upz').style.display='block';document.getElementById('cph').style.display='flex';document.getElementById('tb').style.display='none';document.getElementById('statsDiv').style.display='none';document.getElementById('actionDiv').style.display='none';document.getElementById('blist').innerHTML='';document.getElementById('bc').textContent='0';document.getElementById('dimCount').textContent='0 dims loaded';document.getElementById('procBtn').disabled=true;ctx.clearRect(0,0,canvas.width,canvas.height);}
 function fitView(){if(!workCanvas)return;const ca=document.getElementById('ca');const z=Math.min((ca.clientWidth-20)/W,(ca.clientHeight-20)/H,.9);zoomLvl=z;panX=(ca.clientWidth-W*z)/2;panY=10;render();}
 function doZoom(f){zoomLvl=Math.max(.05,Math.min(5,zoomLvl*f));render();}
 function showP(on){document.getElementById('procPrg').style.display=on?'block':'none';}
