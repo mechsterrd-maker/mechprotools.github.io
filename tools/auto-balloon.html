@@ -307,177 +307,135 @@ function isBlank(cx,cy,r) {
 // 4. Try 8 directions, prefer the one with most white space
 
 function findBalloonPos(dim, placed) {
-  const BR    = Math.round(parseFloat(document.getElementById('bsz').value) * PX_PER_MM);
-  const MAXD  = Math.round(parseFloat(document.getElementById('lmx').value) * PX_PER_MM);
+  const BR   = Math.round(parseFloat(document.getElementById('bsz').value) * PX_PER_MM);
+  const MAXD = Math.round(parseFloat(document.getElementById('lmx').value) * PX_PER_MM);
 
-  const tcx = dim.cx, tcy = dim.cy;
-  const tw  = dim.w  || 50;
-  const th  = dim.h  || 24;
+  const tcx=dim.cx, tcy=dim.cy, tw=dim.w||50, th=dim.h||24;
+  const PAD = Math.round(PX_PER_MM*1.0);
+  const textHalfDiag = Math.hypot(tw/2+PAD, th/2+PAD);
+  const minDist = BR + textHalfDiag + Math.round(PX_PER_MM*3);
 
-  // Text bounding box edges (with small padding)
-  const PAD = Math.round(PX_PER_MM * 1.0);
+  // Position in drawing as percentage
+  const cx_pct = tcx/W;
+  const cy_pct = tcy/H;
 
-  // Minimum distance: balloon CENTER must be at least 3cm from dimension text CENTER
-  const textHalfDiag = Math.hypot(tw/2 + PAD, th/2 + PAD);
-  const MIN_CM = 3; // 3mm minimum gap
-  const minFromText  = Math.max(BR + textHalfDiag + Math.round(PX_PER_MM * 5),
-                                Math.round(PX_PER_MM * MIN_CM));
-
-  // Search outward from text EDGE in 8 directions
-  const directions = [
-    {name:'above',  dx: 0,    dy:-1},
-    {name:'below',  dx: 0,    dy: 1},
-    {name:'right',  dx: 1,    dy: 0},
-    {name:'left',   dx:-1,    dy: 0},
-    {name:'above-right', dx: 0.7, dy:-0.7},
-    {name:'above-left',  dx:-0.7, dy:-0.7},
-    {name:'below-right', dx: 0.7, dy: 0.7},
-    {name:'below-left',  dx:-0.7, dy: 0.7},
+  // All 8 directions
+  const dirs = [
+    {dx:0,   dy:-1,   n:'N'},
+    {dx:0,   dy:1,    n:'S'},
+    {dx:1,   dy:0,    n:'E'},
+    {dx:-1,  dy:0,    n:'W'},
+    {dx:0.7, dy:-0.7, n:'NE'},
+    {dx:-0.7,dy:-0.7, n:'NW'},
+    {dx:0.7, dy:0.7,  n:'SE'},
+    {dx:-0.7,dy:0.7,  n:'SW'},
   ];
 
-  const candidates = [];
+  // Score each direction — prefer toward nearest margin
+  // So balloons end up in margins, leaders point inward = clean look
+  function score(d) {
+    let s=0;
+    if(cy_pct < 0.45 && d.dy < 0) s+=3;  // upper half → prefer north
+    if(cy_pct > 0.55 && d.dy > 0) s+=3;  // lower half → prefer south
+    if(cx_pct < 0.35 && d.dx < 0) s+=2;  // left area → prefer west
+    if(cx_pct > 0.65 && d.dx > 0) s+=2;  // right area → prefer east
+    if(cx_pct > 0.4 && cx_pct < 0.6 && d.dy < 0) s+=1; // center → slightly prefer north
+    return s;
+  }
 
-  for(const dir of directions) {
-    // Start searching from minFromText distance outward
-    for(let dist = minFromText; dist <= MAXD; dist += 12) {
-      const cx = Math.round(tcx + dir.dx * dist);
-      const cy = Math.round(tcy + dir.dy * dist);
+  const sorted = [...dirs].sort((a,b)=>score(b)-score(a));
+  const candidates=[];
 
-      // Stay within drawing bounds
-      if(cx - BR < 10 || cx + BR > W - 10) continue;
-      if(cy - BR < 10 || cy + BR > H - 10) continue;
-
-      // Stay within valid drawing area (not title block or border)
-      if(cx < W * 0.09) continue;
-      if(cy < H * 0.07) continue;
-      if(cy > H * 0.88) continue;
-
-      // Must be in clear white space
-      if(!isBlank(cx, cy, Math.round(BR * 1.15))) continue;
-
-      // Must not overlap any existing balloon
-      if(placed.some(p => Math.hypot(cx-p[0], cy-p[1]) < BR * 2.5)) continue;
-
-      // Must not overlap ANY dimension text (not just current one)
-      const overlapsText = allDims.some(d => {
-        const pad2 = Math.round(PX_PER_MM * 0.5);
-        return cx > d.cx - d.w/2 - BR - pad2 &&
-               cx < d.cx + d.w/2 + BR + pad2 &&
-               cy > d.cy - d.h/2 - BR - pad2 &&
-               cy < d.cy + d.h/2 + BR + pad2;
+  for(const d of sorted) {
+    for(let dist=minDist; dist<=MAXD; dist+=10) {
+      const cx=Math.round(tcx+d.dx*dist);
+      const cy=Math.round(tcy+d.dy*dist);
+      if(cx-BR<10||cx+BR>W-10||cy-BR<10||cy+BR>H-10) continue;
+      if(cx<W*0.09||cy<H*0.07||cy>H*0.88) continue;
+      if(!isBlank(cx,cy,Math.round(BR*1.15))) continue;
+      if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1])<BR*2.5)) continue;
+      const overlaps=allDims.some(d2=>{
+        const p2=Math.round(PX_PER_MM*0.5);
+        return cx>d2.cx-d2.w/2-BR-p2&&cx<d2.cx+d2.w/2+BR+p2&&
+               cy>d2.cy-d2.h/2-BR-p2&&cy<d2.cy+d2.h/2+BR+p2;
       });
-      if(overlapsText) continue;
-
-      const leaderLen = Math.hypot(cx-tcx, cy-tcy) - textHalfDiag - BR;
-      candidates.push({cx, cy, leaderLen, dirName: dir.name});
-      break; // Found valid position in this direction — stop searching this direction
+      if(overlaps) continue;
+      const leaderLen=Math.hypot(cx-tcx,cy-tcy)-textHalfDiag-BR;
+      candidates.push({cx,cy,leaderLen,s:score(d),n:d.n});
+      break;
     }
   }
 
   if(!candidates.length) return null;
-
-  // Pick the candidate with the SHORTEST leader
-  candidates.sort((a,b) => a.leaderLen - b.leaderLen);
+  // Best = highest direction score, tiebreak = shortest leader
+  candidates.sort((a,b)=>b.s-a.s||(a.leaderLen-b.leaderLen));
   return candidates[0];
 }
-
 // ── TIP AT TEXT EDGE ───────────────────────────────────────────────────────
 // Returns the exact point on the text bounding box edge
 // facing toward the balloon — arrow tip goes HERE
 function tipAtEdge(tcx, tcy, tw, th, bx, by) {
+  // Arrow tip starts 3mm OUTSIDE the dimension text bounding box
+  // This guarantees the arrow never touches or overlaps the dimension text
+  const GAP = Math.round(PX_PER_MM * 3.0);
   const dx = bx - tcx, dy = by - tcy;
-  const PAD = Math.round(PX_PER_MM * 0.5);
-  const hw  = tw/2 + PAD;
-  const hh  = th/2 + PAD;
+  const hw = tw/2 + GAP;
+  const hh = th/2 + GAP;
   if(Math.abs(dx) < 0.001) return [tcx, tcy - Math.sign(dy)*hh];
   if(Math.abs(dy) < 0.001) return [tcx - Math.sign(dx)*hw, tcy];
   const tlr = hw / Math.abs(dx);
   const ttb = hh / Math.abs(dy);
   if(tlr < ttb) return [Math.round(tcx - Math.sign(dx)*hw), Math.round(tcy - dy*tlr)];
-  return     [Math.round(tcx - dx*ttb),                 Math.round(tcy - Math.sign(dy)*hh)];
+  return [Math.round(tcx - dx*ttb), Math.round(tcy - Math.sign(dy)*hh)];
 }
 
-// ── DRAW ONE BALLOON — orthogonal leader ──────────────────────────────────
+// ── DRAW ONE BALLOON — Style A: straight arrow, tip 3mm outside text box ──
 function drawBalloon(c, bx, by, tipx, tipy, num, BR) {
-  const LW  = Math.max(3, Math.round(PX_PER_MM * 0.55));
-  const DOT = Math.max(5, Math.round(PX_PER_MM * 0.75));
-  const FS  = Math.round(BR * 1.12);
+  const LW = Math.max(2, Math.round(PX_PER_MM * 0.45));
+  const FS = Math.round(BR * 1.12);
 
-  const dx = bx - tipx;
-  const dy = by - tipy;
+  const dx   = bx - tipx;
+  const dy   = by - tipy;
   const dist = Math.hypot(dx, dy);
 
-  if(dist > 1) {
-    c.strokeStyle = BLUE;
+  if(dist > 2) {
+    const nx = dx/dist, ny = dy/dist;
+
+    // Line from tip to balloon edge
+    const ex = bx - nx*(BR+1);
+    const ey = by - ny*(BR+1);
+    c.strokeStyle = '#0A1EA0';
     c.lineWidth   = LW;
     c.beginPath();
-
-    // Orthogonal leader: tip → elbow → balloon edge
-    // Elbow is at same X as balloon, same Y as tip (horizontal then vertical)
-    // OR same Y as balloon, same X as tip — whichever gives cleaner look
-    const elbowX = bx;
-    const elbowY = tipy;
-
-    // Check if this elbow is in blank space, else use other option
-    const elbowX2 = tipx;
-    const elbowY2 = by;
-
-    // Pick elbow based on dominant direction
-    let ex, ey;
-    if(Math.abs(dx) >= Math.abs(dy)) {
-      // More horizontal — elbow at (balloon_x, tip_y)
-      ex = bx; ey = tipy;
-    } else {
-      // More vertical — elbow at (tip_x, balloon_y)
-      ex = tipx; ey = by;
-    }
-
-    // Line from tip to elbow
     c.moveTo(tipx, tipy);
     c.lineTo(ex, ey);
-    // Line from elbow to balloon edge
-    const bdx = bx-ex, bdy = by-ey;
-    const bdist = Math.hypot(bdx,bdy);
-    if(bdist > 1) {
-      const bex = bx-(bdx/bdist)*(BR+1);
-      const bey = by-(bdy/bdist)*(BR+1);
-      c.lineTo(bex, bey);
-    }
     c.stroke();
 
-    // Arrowhead at tip pointing toward elbow
-    const nx = (tipx-ex)/Math.max(1,Math.abs(tipx-ex)||1);
-    const ny2 = (tipy-ey)/Math.max(1,Math.abs(tipy-ey)||1);
-    const adx = ex-tipx, ady = ey-tipy;
-    const alen = Math.hypot(adx,ady)||1;
-    const anx  = adx/alen, any = ady/alen;
-    const apx  = -any,     apy = anx;
-    const al = BR*.42, aw = BR*.22;
-    c.fillStyle=BLUE; c.beginPath();
+    // Solid arrowhead at tip
+    const al = Math.round(PX_PER_MM * 2.2);
+    const aw = Math.round(PX_PER_MM * 0.9);
+    const px = -ny, py = nx;
+    c.fillStyle = '#0A1EA0';
+    c.beginPath();
     c.moveTo(tipx, tipy);
-    c.lineTo(tipx-anx*al+apx*aw, tipy-any*al+apy*aw);
-    c.lineTo(tipx-anx*al-apx*aw, tipy-any*al-apy*aw);
-    c.closePath(); c.fill();
-
-    // Small dot at elbow for professional look
-    c.fillStyle=BLUE;
-    c.beginPath(); c.arc(ex,ey,Math.max(3,LW),0,Math.PI*2); c.fill();
+    c.lineTo(tipx - nx*al + px*aw, tipy - ny*al + py*aw);
+    c.lineTo(tipx - nx*al - px*aw, tipy - ny*al - py*aw);
+    c.closePath();
+    c.fill();
   }
 
-  // Solid dot at tip
-  c.fillStyle=BLUE;
-  c.beginPath(); c.arc(tipx,tipy,DOT,0,Math.PI*2); c.fill();
-
   // Balloon circle
-  c.fillStyle=WHITE;
-  c.beginPath(); c.arc(bx,by,BR,0,Math.PI*2); c.fill();
-  c.strokeStyle=BLUE; c.lineWidth=Math.max(3,LW*1.2);
-  c.beginPath(); c.arc(bx,by,BR,0,Math.PI*2); c.stroke();
+  c.fillStyle = '#ffffff';
+  c.beginPath(); c.arc(bx, by, BR, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#0A1EA0';
+  c.lineWidth = Math.max(2, LW*1.1);
+  c.beginPath(); c.arc(bx, by, BR, 0, Math.PI*2); c.stroke();
 
   // Number
-  c.fillStyle=BLUE;
-  c.font=`bold ${FS}px 'Segoe UI',sans-serif`;
-  c.textAlign='center'; c.textBaseline='middle';
+  c.fillStyle = '#0A1EA0';
+  c.font = `bold ${FS}px 'Segoe UI',sans-serif`;
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
   c.fillText(String(num), bx, by+1);
 }
 
