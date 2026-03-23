@@ -674,12 +674,28 @@ async function processDrawing() {
   showP(true); setP(10,'Sending to Document AI...');
 
   try {
-    const safe  = rawBytes.slice(0);
-    const bytes = new Uint8Array(safe);
-    let bin='';
-    for(let i=0;i<bytes.length;i+=8192)
-      bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+8192,bytes.length)));
-    const b64 = btoa(bin);
+    let b64, sendMime;
+
+    if(rawMime === 'application/pdf') {
+      // Send PDF directly — Layout Parser fully supports PDF
+      const safe  = rawBytes.slice(0);
+      const bytes = new Uint8Array(safe);
+      let bin='';
+      for(let i=0;i<bytes.length;i+=8192)
+        bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+8192,bytes.length)));
+      b64 = btoa(bin);
+      sendMime = 'application/pdf';
+    } else {
+      // For images: convert to PNG — Layout Parser supports PNG but not JPEG
+      const tmp = document.createElement('canvas');
+      tmp.width=W; tmp.height=H;
+      tmp.getContext('2d').drawImage(workCanvas,0,0);
+      const dataUrl = tmp.toDataURL('image/png');
+      b64 = dataUrl.split(',')[1];
+      sendMime = 'image/png';
+    }
+
+    console.log('Sending:', sendMime, Math.round(b64.length/1024)+'KB');
     setP(30,'Layout Parser processing...');
 
     const resp = await fetch(cfUrl, {
@@ -687,7 +703,7 @@ async function processDrawing() {
       headers: {'Content-Type': 'text/plain'},
       body:    JSON.stringify({
         image_b64:  b64,
-        mime_type:  rawMime,
+        mime_type:  sendMime,
         img_width:  W,
         img_height: H
       })
