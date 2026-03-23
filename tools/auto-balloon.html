@@ -300,77 +300,97 @@ function isBlank(cx,cy,r) {
 }
 
 // ── FIND BALLOON POSITION ─────────────────────────────────────────────────
-// Key rules:
-// 1. Balloon must NOT overlap dimension text
-// 2. Balloon must be in clear white space
-// 3. Leader points from balloon edge to text edge (never through text)
-// 4. Try 8 directions, prefer the one with most white space
-
+// Places balloon adjacent to dimension text.
+// Checks the ENTIRE leader path is clear — no crossing dimension lines.
 function findBalloonPos(dim, placed) {
-  const BR   = Math.round(parseFloat(document.getElementById('bsz').value) * PX_PER_MM);
-  const MAXD = Math.round(parseFloat(document.getElementById('lmx').value) * PX_PER_MM);
+  const BR    = Math.round(parseFloat(document.getElementById('bsz').value) * PX_PER_MM);
+  const MAXD  = Math.round(parseFloat(document.getElementById('lmx').value) * PX_PER_MM);
+  const tcx   = dim.cx, tcy = dim.cy;
+  const tw    = dim.w || 50, th = dim.h || 24;
 
-  const tcx=dim.cx, tcy=dim.cy, tw=dim.w||50, th=dim.h||24;
-  const PAD = Math.round(PX_PER_MM*1.0);
-  const textHalfDiag = Math.hypot(tw/2+PAD, th/2+PAD);
-  const minDist = BR + textHalfDiag + Math.round(PX_PER_MM*3);
+  // Gap between text edge and leader tip — 3mm
+  const GAP  = Math.round(PX_PER_MM * 3);
+  const hw   = tw/2 + GAP, hh = th/2 + GAP;
+  // Minimum center-to-center distance
+  const minD = BR + Math.hypot(hw, hh);
 
-  // Position in drawing as percentage
-  const cx_pct = tcx/W;
-  const cy_pct = tcy/H;
-
-  // All 8 directions
-  const dirs = [
-    {dx:0,   dy:-1,   n:'N'},
-    {dx:0,   dy:1,    n:'S'},
-    {dx:1,   dy:0,    n:'E'},
-    {dx:-1,  dy:0,    n:'W'},
-    {dx:0.7, dy:-0.7, n:'NE'},
-    {dx:-0.7,dy:-0.7, n:'NW'},
-    {dx:0.7, dy:0.7,  n:'SE'},
-    {dx:-0.7,dy:0.7,  n:'SW'},
-  ];
-
-  // Score each direction — prefer toward nearest margin
-  // So balloons end up in margins, leaders point inward = clean look
-  function score(d) {
-    let s=0;
-    if(cy_pct < 0.45 && d.dy < 0) s+=3;  // upper half → prefer north
-    if(cy_pct > 0.55 && d.dy > 0) s+=3;  // lower half → prefer south
-    if(cx_pct < 0.35 && d.dx < 0) s+=2;  // left area → prefer west
-    if(cx_pct > 0.65 && d.dx > 0) s+=2;  // right area → prefer east
-    if(cx_pct > 0.4 && cx_pct < 0.6 && d.dy < 0) s+=1; // center → slightly prefer north
-    return s;
+  // Check if a straight path from (x1,y1) to (x2,y2) is clear of dark pixels
+  function pathClear(x1, y1, x2, y2) {
+    const dx = x2-x1, dy = y2-y1;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy));
+    if(steps < 1) return true;
+    let dark = 0;
+    for(let i=0; i<=steps; i++) {
+      const t = i/steps;
+      const x = Math.round(x1+dx*t);
+      const y = Math.round(y1+dy*t);
+      if(x<0||y<0||x>=W||y>=H) continue;
+      if(blankMap[y*W+x] === 0) dark++;
+    }
+    // Allow up to 15% dark pixels along path (dimension text itself)
+    return dark/steps < 0.15;
   }
 
-  const sorted = [...dirs].sort((a,b)=>score(b)-score(a));
-  const candidates=[];
+  // 8 directions to try, prefer perpendicular to dimension orientation
+  const dirs = [
+    {dx: 0,    dy:-1},   // above
+    {dx: 0,    dy: 1},   // below
+    {dx: 1,    dy: 0},   // right
+    {dx:-1,    dy: 0},   // left
+    {dx: 0.71, dy:-0.71},// above-right
+    {dx:-0.71, dy:-0.71},// above-left
+    {dx: 0.71, dy: 0.71},// below-right
+    {dx:-0.71, dy: 0.71} // below-left
+  ];
 
-  for(const d of sorted) {
-    for(let dist=minDist; dist<=MAXD; dist+=10) {
-      const cx=Math.round(tcx+d.dx*dist);
-      const cy=Math.round(tcy+d.dy*dist);
+  const candidates = [];
+
+  for(const dir of dirs) {
+    for(let dist = minD; dist <= MAXD; dist += 8) {
+      const cx = Math.round(tcx + dir.dx * dist);
+      const cy = Math.round(tcy + dir.dy * dist);
+
+      // Drawing bounds
       if(cx-BR<10||cx+BR>W-10||cy-BR<10||cy+BR>H-10) continue;
-      if(cx<W*0.09||cy<H*0.07||cy>H*0.88) continue;
-      if(!isBlank(cx,cy,Math.round(BR*1.15))) continue;
-      if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1])<BR*2.5)) continue;
-      const overlaps=allDims.some(d2=>{
-        const p2=Math.round(PX_PER_MM*0.5);
-        return cx>d2.cx-d2.w/2-BR-p2&&cx<d2.cx+d2.w/2+BR+p2&&
-               cy>d2.cy-d2.h/2-BR-p2&&cy<d2.cy+d2.h/2+BR+p2;
+      // Zone filters
+      if(cx < W*0.09) continue;
+      if(cy < H*0.07) continue;
+      if(cy > H*0.88) continue;
+
+      // Balloon landing zone must be blank
+      if(!isBlank(cx, cy, Math.round(BR*1.1))) continue;
+
+      // No overlap with placed balloons
+      if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1]) < BR*2.3)) continue;
+
+      // No overlap with ANY dimension text
+      const hitsDim = allDims.some(d => {
+        const pad = Math.round(PX_PER_MM*0.5);
+        return cx > d.cx-d.w/2-BR-pad && cx < d.cx+d.w/2+BR+pad &&
+               cy > d.cy-d.h/2-BR-pad && cy < d.cy+d.h/2+BR+pad;
       });
-      if(overlaps) continue;
-      const leaderLen=Math.hypot(cx-tcx,cy-tcy)-textHalfDiag-BR;
-      candidates.push({cx,cy,leaderLen,s:score(d),n:d.n});
-      break;
+      if(hitsDim) continue;
+
+      // Compute tip position (3mm outside text box toward balloon)
+      const [tipx, tipy] = tipAtEdge(tcx, tcy, tw, th, cx, cy);
+
+      // CRITICAL: check entire leader path is clear
+      if(!pathClear(tipx, tipy, cx, cy)) continue;
+
+      const leaderLen = Math.hypot(cx-tcx, cy-tcy);
+      candidates.push({cx, cy, leaderLen, tipx, tipy});
+      break; // best position in this direction
     }
   }
 
   if(!candidates.length) return null;
-  // Best = highest direction score, tiebreak = shortest leader
-  candidates.sort((a,b)=>b.s-a.s||(a.leaderLen-b.leaderLen));
+
+  // Pick shortest clear leader
+  candidates.sort((a,b) => a.leaderLen - b.leaderLen);
   return candidates[0];
 }
+
+
 // ── TIP AT TEXT EDGE ───────────────────────────────────────────────────────
 // Returns the exact point on the text bounding box edge
 // facing toward the balloon — arrow tip goes HERE
@@ -448,6 +468,17 @@ function render() {
     const sby  = Math.round(b.by   * zoomLvl + panY);
     const stx  = Math.round(b.tipx * zoomLvl + panX);
     const sty  = Math.round(b.tipy * zoomLvl + panY);
+
+    // Draw white masking box over dimension text area
+    // This erases any geometry lines crossing through the dimension
+    const PAD  = Math.round(PX_PER_MM * 2.5 * zoomLvl);
+    const tw   = Math.round((b.tw||50) * zoomLvl);
+    const th   = Math.round((b.th||24) * zoomLvl);
+    const tcx  = Math.round(b.tx * zoomLvl + panX);
+    const tcy  = Math.round(b.ty * zoomLvl + panY);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(tcx - tw/2 - PAD, tcy - th/2 - PAD, tw + PAD*2, th + PAD*2);
+
     drawBalloon(ctx, sbx, sby, stx, sty, b.num, BR);
   });
 
@@ -822,7 +853,14 @@ function exportPDF() {
   const oc   = out.getContext('2d');
   oc.drawImage(workCanvas,0,0);
   const BR   = Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-  balloons.forEach(b => drawBalloon(oc,b.bx,b.by,b.tipx,b.tipy,b.num,BR));
+  balloons.forEach(b => {
+    // White mask over dimension text
+    const PAD2 = Math.round(PX_PER_MM * 2.5);
+    const tw2  = b.tw||50, th2 = b.th||24;
+    oc.fillStyle = '#ffffff';
+    oc.fillRect(b.tx - tw2/2 - PAD2, b.ty - th2/2 - PAD2, tw2+PAD2*2, th2+PAD2*2);
+    drawBalloon(oc,b.bx,b.by,b.tipx,b.tipy,b.num,BR);
+  });
   const {jsPDF}=window.jspdf;
   const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a1'});
   pdf.addImage(out.toDataURL('image/jpeg',.95),'JPEG',0,0,841,594);
