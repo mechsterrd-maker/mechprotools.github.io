@@ -113,7 +113,8 @@ input.inp:focus{border-color:var(--acc)}
     <div class="mode-btns">
       <div class="mbtn on" id="mBox" onclick="setMode('box')">⬜ Box</div>
       <div class="mbtn" id="mClick" onclick="setMode('click')">🎯 Click</div>
-      <div class="mbtn" id="mMove" onclick="setMode('pan')">✋ Pan</div>
+      <div class="mbtn" id="mDrag" onclick="setMode('drag')">✋ Move</div>
+      <div class="mbtn" id="mMove" onclick="setMode('pan')">🔍 Pan</div>
     </div>
     <div class="help" id="modeHelp">Draw a box around any section — balloons placed instantly on all dimensions inside.</div>
   </div>
@@ -197,6 +198,9 @@ let rawBytes=null, rawMime='image/jpeg';
 let history=[];
 let boxCount=0;
 let isPanning=false, panStart=null, panOrigin=null;
+// Drag state for Move mode
+let dragTarget=null; // {type:'balloon'|'tip', idx:number}
+let dragOff={x:0,y:0};
 
 // ── FILE LOAD ──────────────────────────────────────────────────────────────
 const upz = document.getElementById('upz');
@@ -298,12 +302,22 @@ function render() {
   ctx.drawImage(workCanvas,panX,panY,dw,dh);
   // Draw balloons
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM*zoomLvl);
-  balloons.forEach(b=>{
+  balloons.forEach((b,i)=>{
     const sbx=Math.round(b.bx*zoomLvl+panX);
     const sby=Math.round(b.by*zoomLvl+panY);
     const stx=Math.round(b.tipx*zoomLvl+panX);
     const sty=Math.round(b.tipy*zoomLvl+panY);
     drawBalloon(sbx,sby,stx,sty,b.num,BR);
+    // Highlight if being dragged
+    if(dragTarget&&dragTarget.idx===i){
+      ctx.strokeStyle='#ff6600'; ctx.lineWidth=2; ctx.setLineDash([4,3]);
+      if(dragTarget.type==='balloon'){
+        ctx.beginPath();ctx.arc(sbx,sby,BR+5,0,Math.PI*2);ctx.stroke();
+      } else {
+        ctx.beginPath();ctx.arc(stx,sty,8,0,Math.PI*2);ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
   });
   // Draw selection box
   if(boxStart&&boxCurrent){
@@ -364,10 +378,40 @@ function getCanvasPos(e) {
 }
 
 // ── MOUSE EVENTS ────────────────────────────────────────────────────────────
+// Hit-test: find balloon or tip under cursor (in drawing coords)
+function hitTest(dx,dy) {
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
+  // Check leader tips first (smaller target, higher priority)
+  for(let i=balloons.length-1;i>=0;i--){
+    const b=balloons[i];
+    if(Math.hypot(dx-b.tipx,dy-b.tipy)<BR*0.8) return {type:'tip',idx:i};
+  }
+  // Check balloon circles
+  for(let i=balloons.length-1;i>=0;i--){
+    const b=balloons[i];
+    if(Math.hypot(dx-b.bx,dy-b.by)<BR*1.2) return {type:'balloon',idx:i};
+  }
+  return null;
+}
+
 canvas.addEventListener('mousedown',e=>{
   if(!workCanvas) return;
   const pos=getCanvasPos(e);
-  if(mode==='box'){
+  if(mode==='drag'){
+    const dp=toDrawing(pos.sx,pos.sy);
+    const hit=hitTest(dp.x,dp.y);
+    if(hit){
+      dragTarget=hit;
+      const b=balloons[hit.idx];
+      if(hit.type==='balloon'){
+        dragOff={x:dp.x-b.bx,y:dp.y-b.by};
+        canvas.style.cursor='grabbing';
+      } else {
+        dragOff={x:dp.x-b.tipx,y:dp.y-b.tipy};
+        canvas.style.cursor='crosshair';
+      }
+    }
+  } else if(mode==='box'){
     boxStart={sx:pos.sx,sy:pos.sy,...toDrawing(pos.sx,pos.sy)};
     boxCurrent=null;
   } else if(mode==='pan'){
@@ -381,7 +425,23 @@ canvas.addEventListener('mousedown',e=>{
 canvas.addEventListener('mousemove',e=>{
   if(!workCanvas) return;
   const pos=getCanvasPos(e);
-  if(mode==='box'&&boxStart){
+  if(mode==='drag'&&dragTarget){
+    const dp=toDrawing(pos.sx,pos.sy);
+    const b=balloons[dragTarget.idx];
+    if(dragTarget.type==='balloon'){
+      b.bx=dp.x-dragOff.x;
+      b.by=dp.y-dragOff.y;
+    } else {
+      b.tipx=dp.x-dragOff.x;
+      b.tipy=dp.y-dragOff.y;
+    }
+    render();
+  } else if(mode==='drag'&&!dragTarget){
+    // Show cursor hint — pointer if hovering over balloon/tip
+    const dp=toDrawing(pos.sx,pos.sy);
+    const hit=hitTest(dp.x,dp.y);
+    canvas.style.cursor=hit?'grab':'default';
+  } else if(mode==='box'&&boxStart){
     boxCurrent={sx:pos.sx,sy:pos.sy,...toDrawing(pos.sx,pos.sy)};
     render();
   } else if(mode==='pan'&&isPanning){
@@ -394,7 +454,12 @@ canvas.addEventListener('mousemove',e=>{
 canvas.addEventListener('mouseup',e=>{
   if(!workCanvas) return;
   const pos=getCanvasPos(e);
-  if(mode==='box'&&boxStart){
+  if(mode==='drag'&&dragTarget){
+    dragTarget=null;
+    canvas.style.cursor='default';
+    render();
+    toast('Balloon moved ✓');
+  } else if(mode==='box'&&boxStart){
     const end=toDrawing(pos.sx,pos.sy);
     const x1=Math.min(boxStart.x,end.x),y1=Math.min(boxStart.y,end.y);
     const x2=Math.max(boxStart.x,end.x),y2=Math.max(boxStart.y,end.y);
@@ -773,12 +838,18 @@ function setMode(m) {
   mode=m;
   document.getElementById('mBox').className='mbtn'+(m==='box'?' on':'');
   document.getElementById('mClick').className='mbtn'+(m==='click'?' on':'');
+  document.getElementById('mDrag').className='mbtn'+(m==='drag'?' on':'');
   document.getElementById('mMove').className='mbtn'+(m==='pan'?' on':'');
-  const helps={box:'Draw a box around any section — all dimensions inside get balloons instantly.',click:'Click directly on any dimension text to place a balloon.',pan:'Scroll wheel to zoom. Click and drag to pan.'};
-  const inds={box:'□ Box',click:'🎯 Click',pan:'✋ Pan'};
+  const helps={
+    box:'Draw a box around any section — all dimensions inside get balloons instantly.',
+    click:'Click directly on any dimension text to place a balloon.',
+    drag:'Drag balloons to move them. Drag the arrow tip to re-aim the leader.',
+    pan:'Scroll wheel to zoom. Click and drag to pan.'
+  };
+  const inds={box:'□ Box',click:'🎯 Click',drag:'✋ Move',pan:'🔍 Pan'};
   document.getElementById('modeHelp').textContent=helps[m];
   document.getElementById('modeInd').textContent=inds[m];
-  canvas.style.cursor=m==='pan'?'grab':'crosshair';
+  canvas.style.cursor=m==='pan'?'grab':m==='drag'?'default':'crosshair';
 }
 
 function undoLast(){if(!history.length){toast('Nothing to undo');return;}balloons=balloons.slice(0,history.pop());boxCount=Math.max(0,boxCount-1);render();updateList();updateStats();toast('Undone ✓');}
