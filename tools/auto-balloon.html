@@ -156,6 +156,7 @@ input.inp:focus{border-color:var(--acc)}
     </div>
     <button class="btn btn-suc" onclick="exportPDF()">⬇ Download PDF</button>
     <button class="btn btn-suc" style="background:#1565C0;margin-top:3px" onclick="exportFAI()">📋 Generate FAI Report</button>
+    <button class="btn btn-out" style="background:#2e7d32;color:#fff;margin-top:3px" onclick="balloonAll()">🎯 Balloon ALL dimensions</button>
     <button class="btn btn-out" onclick="renumberAll()">🔢 Renumber All (fix gaps)</button>
     <button class="btn btn-out" onclick="undoLast()">↩ Undo last box</button>
     <button class="btn btn-out" onclick="clearAll()">✕ Clear all</button>
@@ -728,23 +729,37 @@ function placeInBox(x1,y1,x2,y2) {
     inBox.sort((a,b)=>a.cy-b.cy);
   }
   
-  let ok=0;
+  let ok=0, failed=0;
   inBox.forEach((dim,i)=>{
     const num=balloons.length+1;
-    // Try preferred edge direction first, pass dim as sourceDim so it's skipped in checks
+    // Try preferred edge direction first
     let pos=findBlank(dim.cx,dim.cy,placed,edge.dir,dim);
     // Fallback: try any direction
     if(!pos) pos=findBlank(dim.cx,dim.cy,placed,undefined,dim);
+    // Last resort: place at fixed offset from dimension (may overlap but at least it's placed)
+    if(!pos){
+      const offset=BR*2.5;
+      const offsets=[
+        [dim.cx,dim.cy+offset],[dim.cx,dim.cy-offset],
+        [dim.cx+offset,dim.cy],[dim.cx-offset,dim.cy],
+        [dim.cx+offset,dim.cy+offset],[dim.cx-offset,dim.cy-offset]
+      ];
+      for(const [ox,oy] of offsets){
+        if(ox>0&&oy>0&&ox<W&&oy<H&&!placed.some(p=>Math.hypot(p[0]-ox,p[1]-oy)<BR*1.5)){
+          pos=[ox,oy]; break;
+        }
+      }
+    }
     if(pos){
       const [bx,by]=pos; placed.push([bx,by]);
       const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
       balloons.push({num,text:dim.text,type:dim.type,bx,by,tx:dim.cx,ty:dim.cy,tipx,tipy,page:currentPage});
       ok++;
-    }
+    } else { failed++; }
   });
   boxCount++;
   render(); updateList(); updateStats();
-  toast(`✓ ${ok} balloons placed along ${edge.label} edge`);
+  toast(`✓ ${ok} balloons placed along ${edge.label} edge${failed?` (${failed} couldn't find space)`:''}`);
 }
 
 // ── PLACE ON CLICK ─────────────────────────────────────────────────────────
@@ -1203,6 +1218,52 @@ function renumberAll() {
 
 // ── DELETE BALLOON ────────────────────────────────────────────────────────
 function deleteBalloon(idx) {
+
+// ── BALLOON ALL — place on every unballooned dimension ────────────────────
+function balloonAll(){
+  if(!allDims.length){toast('Process drawing first');return;}
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
+  const placed=balloons.map(b=>[b.bx,b.by]);
+  history.push(balloons.length);
+  
+  // Find all unballooned dimensions
+  const unballooned=allDims.filter(d=>
+    !balloons.some(b=>Math.hypot(b.tx-d.cx,b.ty-d.cy)<BR*1.2)
+  );
+  
+  if(!unballooned.length){toast('All dimensions already have balloons!');return;}
+  
+  let ok=0,failed=0;
+  unballooned.forEach(dim=>{
+    const num=balloons.length+1;
+    let pos=findBlank(dim.cx,dim.cy,placed,'bottom',dim);
+    if(!pos) pos=findBlank(dim.cx,dim.cy,placed,undefined,dim);
+    // Last resort: fixed offset
+    if(!pos){
+      const offset=BR*2.5;
+      const offsets=[
+        [dim.cx,dim.cy+offset],[dim.cx,dim.cy-offset],
+        [dim.cx+offset,dim.cy],[dim.cx-offset,dim.cy]
+      ];
+      for(const [ox,oy] of offsets){
+        if(ox>0&&oy>0&&ox<W&&oy<H&&!placed.some(p=>Math.hypot(p[0]-ox,p[1]-oy)<BR*1.5)){
+          pos=[ox,oy]; break;
+        }
+      }
+    }
+    if(pos){
+      const [bx,by]=pos; placed.push([bx,by]);
+      const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
+      balloons.push({num,text:dim.text,type:dim.type,bx,by,tx:dim.cx,ty:dim.cy,tipx,tipy,page:currentPage});
+      ok++;
+    } else failed++;
+  });
+  
+  boxCount++;
+  render();updateList();updateStats();
+  toast(`✓ ${ok} balloons placed on remaining dimensions${failed?` (${failed} no space)`:''}`);}
+
+
   if(idx<0||idx>=balloons.length) return;
   balloons.splice(idx,1);
   render(); updateList(); updateStats();
