@@ -98,6 +98,11 @@ input.inp:focus{border-color:var(--acc)}
       <span class="finfo-n" id="fname"></span>
       <button style="background:none;border:none;cursor:pointer;color:#888;font-size:12px" onclick="clearFile()">✕</button>
     </div>
+    <div id="pageNav" style="display:none;margin:5px 0;text-align:center">
+      <button class="btn btn-out" style="width:auto;padding:4px 10px;display:inline" onclick="goPage(-1)">◀</button>
+      <span style="font-size:12px;font-weight:600;margin:0 6px">Page <span id="pageCur">1</span> / <span id="pageTotal">1</span></span>
+      <button class="btn btn-out" style="width:auto;padding:4px 10px;display:inline" onclick="goPage(1)">▶</button>
+    </div>
     <button class="btn btn-pri" id="procBtn" onclick="processDrawing()" disabled>
       <div class="spin" id="procSpin"></div>
       <span id="procTxt">⚡ Process Drawing</span>
@@ -201,9 +206,10 @@ let rawBytes=null, rawMime='image/jpeg';
 let history=[];
 let boxCount=0;
 let isPanning=false, panStart=null, panOrigin=null;
-// Drag state for Move mode
-let dragTarget=null; // {type:'balloon'|'tip', idx:number}
+let dragTarget=null;
 let dragOff={x:0,y:0};
+// Multi-page state
+let pdfDocRef=null, totalPages=1, currentPage=1;
 
 // ── FILE LOAD ──────────────────────────────────────────────────────────────
 const upz = document.getElementById('upz');
@@ -241,14 +247,28 @@ async function handleFile(f) {
 }
 
 async function loadPDF(buf) {
-  // Use a copy for PDF.js so original rawBytes stays intact for API call
   const pdfBuf = buf.slice(0);
-  const pdf=await pdfjsLib.getDocument({data:pdfBuf}).promise;
-  const pg=await pdf.getPage(1);
+  pdfDocRef=await pdfjsLib.getDocument({data:pdfBuf}).promise;
+  totalPages=pdfDocRef.numPages;
+  currentPage=1;
+  await renderPDFPage(currentPage);
+  // Show page nav if multi-page
+  if(totalPages>1){
+    document.getElementById('pageNav').style.display='flex';
+    document.getElementById('pageTotal').textContent=totalPages;
+    document.getElementById('pageCur').textContent=currentPage;
+  }
+}
+async function renderPDFPage(pgNum){
+  const pg=await pdfDocRef.getPage(pgNum);
   const vp=pg.getViewport({scale:3.0});
   const oc=document.createElement('canvas');
   oc.width=vp.width; oc.height=vp.height;
   await pg.render({canvasContext:oc.getContext('2d'),viewport:vp}).promise;
+  currentPage=pgNum;
+  if(totalPages>1){
+    document.getElementById('pageCur').textContent=currentPage;
+  }
   setupDrawing(oc);
 }
 
@@ -708,7 +728,7 @@ function placeInBox(x1,y1,x2,y2) {
     if(pos){
       const [bx,by]=pos; placed.push([bx,by]);
       const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
-      balloons.push({num,text:dim.text,type:dim.type,bx,by,tx:dim.cx,ty:dim.cy,tipx,tipy});
+      balloons.push({num,text:dim.text,type:dim.type,bx,by,tx:dim.cx,ty:dim.cy,tipx,tipy,page:currentPage});
       ok++;
     }
   });
@@ -734,7 +754,7 @@ function placeOnClick(dx,dy) {
     const [bx,by]=pos;
     const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
     history.push(balloons.length);
-    balloons.push({num:balloons.length+1,text:dim.text,type:dim.type,bx,by,tx:dim.cx,ty:dim.cy,tipx,tipy});
+    balloons.push({num:balloons.length+1,text:dim.text,type:dim.type,bx,by,tx:dim.cx,ty:dim.cy,tipx,tipy,page:currentPage});
     render(); updateList(); updateStats();
     toast(`✓ Balloon ${balloons.length} on "${dim.text}"`);
   } else toast('No blank space found near that dimension');
@@ -827,47 +847,139 @@ function exportPDF() {
   toast('PDF downloaded ✓');
 }
 
+// ── PAGE NAVIGATION ───────────────────────────────────────────────────────
+async function goPage(delta){
+  if(!pdfDocRef) return;
+  const newPg=currentPage+delta;
+  if(newPg<1||newPg>totalPages) return;
+  setP(20,'Loading page '+newPg+'...');showP(true);
+  await renderPDFPage(newPg);
+  showP(false);
+  // Re-process if needed
+  allDims=[];
+  toast(`Page ${newPg} loaded. Click Process Drawing to detect dimensions.`);
+}
+
 // ── PLACE MANUAL — no dimension detection, click anywhere ─────────────────
 function placeManual(dx,dy) {
   if(!workCanvas){toast('Load a drawing first');return;}
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
   const num=balloons.length+1;
-  // Place balloon below the click point
   const bx=dx, by=dy+BR*3;
   const tipx=dx, tipy=dy;
-  // Prompt for dimension text
   const text=prompt(`Balloon #${num} — Enter dimension text:`, '');
-  if(text===null) return; // cancelled
+  if(text===null) return;
   history.push(balloons.length);
-  balloons.push({num,text:text||'?',type:'manual',bx,by,tx:dx,ty:dy,tipx,tipy});
+  balloons.push({num,text:text||'?',type:'manual',bx,by,tx:dx,ty:dy,tipx,tipy,page:currentPage});
   render(); updateList(); updateStats();
   toast(`✓ Manual balloon #${num} placed`);
 }
 
-// ── RENUMBER ALL — fix gaps, sequential from 1 ───────────────────────────
+// ── RENUMBER ALL — sequential across all pages ───────────────────────────
 function renumberAll() {
   if(!balloons.length){toast('No balloons to renumber');return;}
-  // Sort by position: top-to-bottom, left-to-right within rows
-  const sorted=[...balloons];
-  sorted.sort((a,b)=>{
-    const rowA=Math.floor(a.ty/150), rowB=Math.floor(b.ty/150);
-    if(rowA!==rowB) return rowA-rowB;
-    return a.tx-b.tx;
+  // Group by page, within each page sort by position
+  const pages={};
+  balloons.forEach(b=>{
+    const pg=b.page||1;
+    if(!pages[pg]) pages[pg]=[];
+    pages[pg].push(b);
   });
-  // Assign new sequential numbers
-  sorted.forEach((b,i)=>{b.num=i+1;});
-  // Update balloons array to match sorted order
+  // Sort pages, then within each page sort top-to-bottom, left-to-right
+  const pageNums=Object.keys(pages).map(Number).sort((a,b)=>a-b);
+  let counter=1;
+  const reordered=[];
+  pageNums.forEach(pg=>{
+    const pageBalloons=pages[pg];
+    // Sort by row (cy band) then by cx
+    pageBalloons.sort((a,b)=>{
+      const rowSize=Math.max(100,PX_PER_MM*15); // ~15mm row bands
+      const rowA=Math.floor((a.ty||a.tipy||0)/rowSize);
+      const rowB=Math.floor((b.ty||b.tipy||0)/rowSize);
+      if(rowA!==rowB) return rowA-rowB;
+      return (a.tx||a.tipx||0)-(b.tx||b.tipx||0);
+    });
+    pageBalloons.forEach(b=>{
+      b.num=counter++;
+      reordered.push(b);
+    });
+  });
   balloons.length=0;
-  sorted.forEach(b=>balloons.push(b));
+  reordered.forEach(b=>balloons.push(b));
   render(); updateList(); updateStats();
-  toast(`✓ Renumbered ${balloons.length} balloons (1 to ${balloons.length})`);
+  toast(`✓ Renumbered 1 to ${balloons.length} across ${pageNums.length} page(s)`);
 }
 
-// ── FAI REPORT GENERATOR ─────────────────────────────────────────────────
-function exportFAI() {
+// ── DELETE BALLOON ────────────────────────────────────────────────────────
+function deleteBalloon(idx) {
+  if(idx<0||idx>=balloons.length) return;
+  balloons.splice(idx,1);
+  render(); updateList(); updateStats();
+  toast('Balloon deleted');
+}
+
+// ── FAI REPORT GENERATOR (AI-powered) ────────────────────────────────────
+async function exportFAI() {
   if(!balloons.length){toast('No balloons to export');return;}
-  // Sort by balloon number
-  const sorted=[...balloons].sort((a,b)=>a.num-b.num);
+  const sorted=[...balloons].sort((a,b)=>(a.page||1)-(b.page||1)||a.num-b.num);
+  
+  // Try AI auto-fill if workCanvas available
+  let aiData=null;
+  const useAI=confirm('Use AI to auto-identify dimensions and fill FAI data?\n\n(Uses Claude API — takes 10-20 seconds)\n\nClick Cancel for manual FAI report.');
+  
+  if(useAI && workCanvas){
+    toast('AI analyzing drawing...');
+    try{
+      // Create a smaller image for AI analysis
+      const tmp=document.createElement('canvas');
+      const maxW=2000;
+      const ratio=Math.min(maxW/W,1);
+      tmp.width=Math.round(W*ratio);tmp.height=Math.round(H*ratio);
+      tmp.getContext('2d').drawImage(workCanvas,0,0,tmp.width,tmp.height);
+      const imgB64=tmp.toDataURL('image/jpeg',0.8).split(',')[1];
+      
+      // Build balloon position list for AI
+      const balloonInfo=sorted.map(b=>`Balloon #${b.num}: tip at (${Math.round(b.tipx*ratio)},${Math.round(b.tipy*ratio)}), text="${b.text||'?'}"`).join('\n');
+      
+      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:4000,
+          messages:[{role:'user',content:[
+            {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
+            {type:'text',text:`This is an engineering drawing with numbered balloons. For each balloon, identify the dimension it points to and provide FAI inspection data.
+
+Balloon positions:
+${balloonInfo}
+
+For each balloon, respond in JSON array format ONLY (no markdown, no backticks):
+[{"num":1,"dimension":"25.4","type":"linear","nominal":"25.4","tol_plus":"0.2","tol_minus":"0.2","notes":""},...]
+
+Rules:
+- "dimension" = the actual dimension text value the balloon points to
+- "type" = linear/diameter/radius/angle/thread/tolerance/note
+- "nominal" = the nominal value
+- "tol_plus" and "tol_minus" = tolerance values if visible (empty string if not shown)
+- "notes" = any relevant notes (e.g., "2 PLACES", "OPTIONAL", GD&T callout)
+- If you can't identify a balloon's dimension, use the "text" value provided
+- Return ONLY the JSON array, nothing else`}
+          ]}]
+        })
+      });
+      const data=await resp.json();
+      const aiText=data.content.map(c=>c.text||'').join('');
+      // Parse JSON - handle possible markdown wrapping
+      const cleaned=aiText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      aiData=JSON.parse(cleaned);
+      toast(`AI identified ${aiData.length} dimensions ✓`);
+    }catch(e){
+      console.error('AI error:',e);
+      toast('AI analysis failed — generating manual report');
+      aiData=null;
+    }
+  }
   
   // Build HTML report
   let html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -891,17 +1003,18 @@ tr:hover{background:#e8f0fe}
 .bal-num{background:#0057b8;color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;margin:0 auto}
 .editable{min-width:60px;min-height:18px;outline:none;border-radius:3px;padding:2px 4px}
 .editable:focus{background:#fff3cd;box-shadow:0 0 0 2px #ffc107}
-.result-pass{color:#2e7d32;font-weight:600}.result-fail{color:#c92a2a;font-weight:600}
 select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11px}
+.result-pass{color:#2e7d32;font-weight:600}.result-fail{color:#c92a2a;font-weight:600}
 .footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
-.actions{margin:15px 0;display:flex;gap:8px;justify-content:center}
+.actions{margin:15px 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .actions button{padding:8px 16px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .btn-print{background:#0057b8;color:#fff}.btn-add{background:#2e7d32;color:#fff}.btn-csv{background:#555;color:#fff}
+.ai-tag{background:#e8f5e9;color:#2e7d32;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600}
 @media print{.actions{display:none}.editable:focus{background:transparent;box-shadow:none}body{padding:10px}}
 </style></head><body>
 <div class="header">
   <h1>FIRST ARTICLE INSPECTION REPORT</h1>
-  <p>Generated by MechProTools Auto-Balloon · ${new Date().toLocaleDateString()}</p>
+  <p>Generated by MechProTools Auto-Balloon · ${new Date().toLocaleDateString()}${aiData?' · <span class="ai-tag">AI Enhanced</span>':''}</p>
 </div>
 <div class="info-grid">
   <div class="info-box"><label>Part Name</label><input type="text" placeholder="Enter part name"></div>
@@ -916,9 +1029,9 @@ select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11p
   <button class="btn-add" onclick="addRow()">+ Add Row</button>
   <button class="btn-csv" onclick="downloadCSV()">⬇ Export CSV</button>
 </div>
-<table id="faiTable">
-<thead><tr>
-  <th style="width:40px;text-align:center">#</th>
+<table id="faiTable"><thead><tr>
+  <th style="width:36px;text-align:center">#</th>
+  ${totalPages>1?'<th style="width:36px">Pg</th>':''}
   <th>Dimension / Feature</th>
   <th>Type</th>
   <th>Nominal</th>
@@ -926,45 +1039,49 @@ select.verdict{padding:3px;border:1px solid #ddd;border-radius:4px;font-size:11p
   <th>Tol −</th>
   <th>Actual</th>
   <th>Dev</th>
-  <th style="width:70px">Result</th>
+  <th style="width:60px">Result</th>
   <th>Remarks</th>
-</tr></thead>
-<tbody>`;
+</tr></thead><tbody>`;
 
   sorted.forEach(b=>{
+    // Get AI data for this balloon if available
+    const ai=aiData?aiData.find(a=>a.num===b.num):null;
+    const dim=ai?ai.dimension:(b.text||'?');
+    const type=ai?ai.type:(b.type||'linear');
+    const nom=ai?ai.nominal:(b.text||'');
+    const tp=ai?(ai.tol_plus||''):'';
+    const tm=ai?(ai.tol_minus||''):'';
+    const notes=ai?(ai.notes||''):'';
+    
     html+=`<tr>
   <td style="text-align:center"><div class="bal-num">${b.num}</div></td>
-  <td><div class="editable" contenteditable="true">${b.text||'?'}</div></td>
-  <td><div class="editable" contenteditable="true">${b.type||'linear'}</div></td>
-  <td><div class="editable" contenteditable="true">${b.text||''}</div></td>
-  <td><div class="editable" contenteditable="true"></div></td>
-  <td><div class="editable" contenteditable="true"></div></td>
+  ${totalPages>1?`<td style="text-align:center;font-size:10px">${b.page||1}</td>`:''}
+  <td><div class="editable" contenteditable="true">${dim}</div></td>
+  <td><div class="editable" contenteditable="true">${type}</div></td>
+  <td><div class="editable" contenteditable="true">${nom}</div></td>
+  <td><div class="editable" contenteditable="true">${tp}</div></td>
+  <td><div class="editable" contenteditable="true">${tm}</div></td>
   <td><div class="editable" contenteditable="true" style="background:#fffde7"></div></td>
   <td><div class="editable" contenteditable="true"></div></td>
   <td><select class="verdict" onchange="this.className='verdict '+(this.value==='PASS'?'result-pass':'result-fail')"><option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></td>
-  <td><div class="editable" contenteditable="true"></div></td>
+  <td><div class="editable" contenteditable="true">${notes}</div></td>
 </tr>`;
   });
 
   html+=`</tbody></table>
-<div class="footer">MechProTools FAI Report · mechsterrd-maker.github.io · ${new Date().toISOString().slice(0,10)}</div>
+<div class="footer">MechProTools FAI Report · ${new Date().toISOString().slice(0,10)}</div>
 <script>
 function addRow(){
-  const tbody=document.querySelector('#faiTable tbody');
-  const num=tbody.rows.length+1;
-  const row=tbody.insertRow();
-  row.innerHTML='<td style="text-align:center"><div class="bal-num">'+num+'</div></td><td><div class="editable" contenteditable="true">New dimension</div></td><td><div class="editable" contenteditable="true">linear</div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true" style="background:#fffde7"></div></td><td><div class="editable" contenteditable="true"></div></td><td><select class="verdict" onchange="this.className=\\'verdict \\'+( this.value===\\'PASS\\'?\\'result-pass\\':\\'result-fail\\')"><option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></td><td><div class="editable" contenteditable="true"></div></td>';
+  const t=document.querySelector('#faiTable tbody');const n=t.rows.length+1;const r=t.insertRow();
+  r.innerHTML='<td style="text-align:center"><div class="bal-num">'+n+'</div></td>${totalPages>1?"<td style=\\"text-align:center;font-size:10px\\">1</td>":""}'+
+  '<td><div class="editable" contenteditable="true">New dimension</div></td><td><div class="editable" contenteditable="true">linear</div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true"></div></td><td><div class="editable" contenteditable="true" style="background:#fffde7"></div></td><td><div class="editable" contenteditable="true"></div></td><td><select class="verdict"><option value="">—</option><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select></td><td><div class="editable" contenteditable="true"></div></td>';
 }
 function downloadCSV(){
-  const rows=[['#','Dimension','Type','Nominal','Tol+','Tol-','Actual','Dev','Result','Remarks']];
+  const rows=[[${totalPages>1?"'#','Page','Dimension','Type','Nominal','Tol+','Tol-','Actual','Dev','Result','Remarks'":"'#','Dimension','Type','Nominal','Tol+','Tol-','Actual','Dev','Result','Remarks'"}]];
   document.querySelectorAll('#faiTable tbody tr').forEach(tr=>{
-    const cells=[];
-    tr.querySelectorAll('td').forEach((td,i)=>{
-      if(i===0)cells.push(td.textContent.trim());
-      else if(i===8)cells.push(td.querySelector('select').value);
-      else cells.push(td.textContent.trim());
-    });
-    rows.push(cells);
+    const c=[];tr.querySelectorAll('td').forEach((td,i)=>{
+      const sel=td.querySelector('select');c.push(sel?sel.value:td.textContent.trim());
+    });rows.push(c);
   });
   const csv=rows.map(r=>r.map(c=>'"'+c.replace(/"/g,'""')+'"').join(',')).join('\\n');
   const a=document.createElement('a');a.download='FAI_Report.csv';
@@ -972,10 +1089,8 @@ function downloadCSV(){
 }
 <\/script></body></html>`;
 
-  // Open in new tab
   const blob=new Blob([html],{type:'text/html'});
-  const url=URL.createObjectURL(blob);
-  window.open(url,'_blank');
+  window.open(URL.createObjectURL(blob),'_blank');
   toast('FAI report opened in new tab ✓');
 }
 
@@ -984,9 +1099,10 @@ function updateList() {
   const list=document.getElementById('blist');
   list.innerHTML='';
   document.getElementById('bc').textContent=balloons.length;
-  balloons.forEach(b=>{
+  balloons.forEach((b,i)=>{
     const el=document.createElement('div'); el.className='bi';
-    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt">${b.text}</div><div style="color:#2e7d32;font-size:10px">✓</div>`;
+    const pgLabel=totalPages>1?`<span style="font-size:9px;color:#aaa;margin-left:2px">P${b.page||1}</span>`:'';
+    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt">${b.text}${pgLabel}</div><div style="cursor:pointer;color:#c92a2a;font-size:14px;padding:2px 4px" onclick="deleteBalloon(${i})" title="Delete">✕</div>`;
     list.appendChild(el);
   });
   list.scrollTop=list.scrollHeight;
