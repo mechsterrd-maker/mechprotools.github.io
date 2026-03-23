@@ -430,7 +430,8 @@ function tipAtEdge(tcx,tcy,tw,th,bx,by) {
   return [tcx-dx*ttb,tcy-Math.sign(dy)*hh];
 }
 
-// ── BLANK SPACE FINDER (IMPROVED — aligned + no leader crossing) ──────────
+// ── BLANK SPACE FINDER (V3 — avoids dimensions, avoids leader-over-text) ──
+
 function isBlank(cx,cy,r) {
   if(!blankMap) return true;
   let blank=0,total=0;
@@ -440,58 +441,102 @@ function isBlank(cx,cy,r) {
   return total>0&&blank/total>.78;
 }
 
-// Check if a line from (ax,ay) to (bx,by) passes through any existing balloon
-function leaderCrossesBalloon(ax,ay,bx,by,placed,BR) {
+// Check if leader line is clear of ALL obstacles (balloons + dimension text boxes)
+function isLeaderClear(ax,ay,bx,by,placed,BR) {
+  // 1. Check leader doesn't cross existing balloons
   for(const p of placed) {
-    // Distance from point p to line segment (ax,ay)-(bx,by)
-    const dx=bx-ax, dy=by-ay;
-    const len2=dx*dx+dy*dy;
+    const dx=bx-ax, dy=by-ay, len2=dx*dx+dy*dy;
     if(len2<1) continue;
     let t=((p[0]-ax)*dx+(p[1]-ay)*dy)/len2;
     t=Math.max(0,Math.min(1,t));
-    const closestX=ax+t*dx, closestY=ay+t*dy;
-    const dist=Math.hypot(p[0]-closestX,p[1]-closestY);
-    if(dist<BR*1.3) return true; // leader passes through a balloon
+    const cx=ax+t*dx, cy=ay+t*dy;
+    if(Math.hypot(p[0]-cx,p[1]-cy)<BR*1.4) return false;
+  }
+  // 2. Check leader doesn't cross dimension text boxes
+  for(const d of allDims) {
+    // Expand dimension bbox by margin
+    const mx=12, my=8;
+    const rx1=d.cx-(d.w||50)/2-mx, ry1=d.cy-(d.h||24)/2-my;
+    const rx2=d.cx+(d.w||50)/2+mx, ry2=d.cy+(d.h||24)/2+my;
+    // Check if line segment intersects this rectangle
+    if(lineIntersectsRect(ax,ay,bx,by,rx1,ry1,rx2,ry2)) return false;
+  }
+  return true;
+}
+
+// Line-rectangle intersection test
+function lineIntersectsRect(x1,y1,x2,y2,rx1,ry1,rx2,ry2) {
+  // Check if either endpoint is inside rect
+  if(x1>=rx1&&x1<=rx2&&y1>=ry1&&y1<=ry2) return true;
+  if(x2>=rx1&&x2<=rx2&&y2>=ry1&&y2<=ry2) return true;
+  // Check line against 4 rect edges
+  if(lineSegIntersect(x1,y1,x2,y2,rx1,ry1,rx2,ry1)) return true; // top
+  if(lineSegIntersect(x1,y1,x2,y2,rx1,ry2,rx2,ry2)) return true; // bottom
+  if(lineSegIntersect(x1,y1,x2,y2,rx1,ry1,rx1,ry2)) return true; // left
+  if(lineSegIntersect(x1,y1,x2,y2,rx2,ry1,rx2,ry2)) return true; // right
+  return false;
+}
+
+function lineSegIntersect(x1,y1,x2,y2,x3,y3,x4,y4) {
+  const d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+  if(Math.abs(d)<0.001) return false;
+  const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
+  const u=-((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/d;
+  return t>=0&&t<=1&&u>=0&&u<=1;
+}
+
+// Check balloon position doesn't overlap ANY dimension text
+function overlapsDimension(cx,cy,BR) {
+  for(const d of allDims) {
+    const hw=(d.w||50)/2+BR+6, hh=(d.h||24)/2+BR+6;
+    if(Math.abs(cx-d.cx)<hw && Math.abs(cy-d.cy)<hh) return true;
   }
   return false;
 }
 
-// Find blank space — prefers the given direction for uniform alignment
+// Find blank space — v3: avoids dimensions, checks leader path, prefers direction
 function findBlank(tx,ty,placed,preferDir) {
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
   const MAXD=Math.round(parseFloat(document.getElementById('lmx').value)*PX_PER_MM);
   
-  // Build angle search order: prefer the given direction, then nearby angles, then others
+  // Build angle search order
   const angles=[];
   if(preferDir!==undefined) {
-    // Search preferred direction first (±30°), then expand
-    for(let offset=0;offset<=180;offset+=8) {
+    for(let offset=0;offset<=180;offset+=6) {
       const a1=(preferDir+offset)%360;
       const a2=(preferDir-offset+360)%360;
       if(!angles.includes(a1)) angles.push(a1);
-      if(offset>0 && !angles.includes(a2)) angles.push(a2);
+      if(offset>0&&!angles.includes(a2)) angles.push(a2);
     }
   } else {
-    for(let deg=0;deg<360;deg+=8) angles.push(deg);
+    for(let deg=0;deg<360;deg+=6) angles.push(deg);
   }
   
-  for(let dist=Math.round(BR*1.6);dist<=MAXD;dist+=Math.round(BR*0.5)){
+  // Start searching further out to avoid covering dimensions
+  const minDist=Math.round(BR*2.2);
+  
+  for(let dist=minDist;dist<=MAXD;dist+=Math.round(BR*0.4)){
     const hits=[];
     for(const deg of angles){
       const ang=deg*Math.PI/180;
       const cx=Math.round(tx+dist*Math.cos(ang));
       const cy=Math.round(ty+dist*Math.sin(ang));
+      // Boundary checks
       if(cx-BR<8||cx+BR>W-8||cy-BR<8||cy+BR>H-8) continue;
-      if(cx<W*.09||cy<H*.08||cy>H*.87) continue;
-      if(!isBlank(cx,cy,Math.round(BR*1.2))) continue;
-      if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1])<BR*2.4)) continue;
-      // CHECK: leader line must not cross any existing balloon
-      if(leaderCrossesBalloon(tx,ty,cx,cy,placed,BR)) continue;
-      // Score: prefer preferred direction (lower angle diff = better)
+      if(cx<W*.09||cy<H*.065||cy>H*.88) continue;
+      // Must be on blank (white) space
+      if(!isBlank(cx,cy,Math.round(BR*1.3))) continue;
+      // Must not overlap ANY dimension text box
+      if(overlapsDimension(cx,cy,BR)) continue;
+      // Must not be too close to existing balloons
+      if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1])<BR*2.6)) continue;
+      // Leader path must be clear of other balloons AND dimension text
+      if(!isLeaderClear(tx,ty,cx,cy,placed,BR)) continue;
+      // Score: prefer direction + closer distance
       let score=dist;
       if(preferDir!==undefined) {
         const adiff=Math.abs(((deg-preferDir+180)%360)-180);
-        score=dist+adiff*2; // penalize deviation from preferred direction
+        score=dist+adiff*3;
       }
       hits.push([score,cx,cy]);
     }
@@ -502,25 +547,23 @@ function findBlank(tx,ty,placed,preferDir) {
 
 // ── DETERMINE BEST EDGE FOR BOX ───────────────────────────────────────────
 function bestEdgeForBox(x1,y1,x2,y2) {
-  // Find which edge of the box has the most blank space outside it
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-  const margin=BR*3;
+  const margin=BR*4;
   const edges=[
-    {dir:270, label:'top',    space: y1 > margin},           // balloons go above
-    {dir:90,  label:'bottom', space: (H-y2) > margin},       // balloons go below
-    {dir:180, label:'left',   space: x1 > margin},           // balloons go left
-    {dir:0,   label:'right',  space: (W-x2) > margin},       // balloons go right
+    {dir:270, label:'top',    space: y1 > margin},
+    {dir:90,  label:'bottom', space: (H-y2) > margin},
+    {dir:180, label:'left',   space: x1 > margin},
+    {dir:0,   label:'right',  space: (W-x2) > margin},
   ];
-  // Prefer top, then right, then bottom, then left (common drafting convention)
   const priority=['top','right','bottom','left'];
   for(const p of priority) {
     const e=edges.find(e=>e.label===p);
     if(e && e.space) return e;
   }
-  return edges[0]; // fallback to top
+  return edges[0];
 }
 
-// ── PLACE IN BOX (IMPROVED — uniform alignment, no leader crossing) ───────
+// ── PLACE IN BOX (V3 — clean placement, no overlap) ──────────────────────
 function placeInBox(x1,y1,x2,y2) {
   if(!allDims.length){toast('Process drawing first to load dimensions');return;}
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
@@ -533,29 +576,22 @@ function placeInBox(x1,y1,x2,y2) {
   );
   if(!inBox.length){toast('No unballooned dimensions in this box');return;}
   
-  // Determine best edge to place balloons
   const edge=bestEdgeForBox(x1,y1,x2,y2);
   
-  // Sort dimensions based on edge direction
+  // Sort dimensions along the edge direction
   if(edge.label==='top'||edge.label==='bottom') {
-    inBox.sort((a,b)=>a.cx-b.cx); // left to right
+    inBox.sort((a,b)=>a.cx-b.cx);
   } else {
-    inBox.sort((a,b)=>a.cy-b.cy); // top to bottom
+    inBox.sort((a,b)=>a.cy-b.cy);
   }
   
-  // Calculate evenly spaced balloon positions along the edge
-  const spacing=BR*2.6;
   let ok=0;
-  
   inBox.forEach((dim,i)=>{
     const num=balloons.length+1;
-    
-    // Try preferred direction first (toward the chosen edge)
+    // Try preferred edge direction first
     let pos=findBlank(dim.cx,dim.cy,placed,edge.dir);
-    
-    // If preferred direction fails, try any direction
+    // Fallback: try any direction
     if(!pos) pos=findBlank(dim.cx,dim.cy,placed);
-    
     if(pos){
       const [bx,by]=pos; placed.push([bx,by]);
       const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
