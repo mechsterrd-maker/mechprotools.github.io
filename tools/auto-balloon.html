@@ -9,7 +9,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--nav:#1a1a2e;--acc:#185FA5;--acc-l:#E6F1FB;--acc-d:#0C447C;--grn:#2e7d32;--sw:280px}
-body{font-family:'Segoe UI',sans-serif;background:#e0e0da;overflow:hidden}
+body{font-family:'Segoe UI',sans-serif;background:#e8e8e3;overflow:hidden}
 nav{background:var(--nav);display:flex;align-items:center;padding:0 1rem;height:48px;gap:.2rem;flex-wrap:wrap;position:sticky;top:0;z-index:100}
 .nb{font-size:.9rem;font-weight:700;color:#fff;margin-right:.5rem}.nb span{color:#4fc3f7}
 nav a{color:#ccc;text-decoration:none;font-size:11px;padding:4px 7px;border-radius:4px;white-space:nowrap}
@@ -45,22 +45,22 @@ input.inp:focus{border-color:var(--acc)}
 .blist{flex:1;overflow-y:auto}
 .bi{display:flex;align-items:center;gap:5px;padding:5px .7rem;border-bottom:1px solid #f0f0f0;font-size:11px;cursor:pointer}
 .bi:hover{background:#f8f8f8}
-.bnum{width:20px;height:20px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.bnum{width:18px;height:18px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
 .btxt{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ca{flex:1;position:relative;overflow:hidden;background:#c8c8c4}
-.cph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;text-align:center;pointer-events:none}
+.ca{flex:1;position:relative;overflow:auto;background:#d0d0cc;display:flex;align-items:flex-start;justify-content:flex-start}
+.cph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;text-align:center}
 .cph p{font-size:.9rem;margin-top:.5rem}
-#mc{display:block;position:absolute;top:0;left:0}
-.tb{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.96);border:1px solid #ddd;border-radius:7px;padding:5px 8px;display:none;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:50;white-space:nowrap}
+#mainCanvas{display:block;cursor:crosshair}
+.tb{position:fixed;top:60px;left:calc(var(--sw) + 20px);background:rgba(255,255,255,.95);border:1px solid #ddd;border-radius:7px;padding:5px 8px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.1);z-index:50;display:none}
 .tbb{background:none;border:none;cursor:pointer;padding:4px 7px;border-radius:5px;font-size:12px;color:#555}
 .tbb:hover{background:#eee}
 .tbs{width:1px;height:16px;background:#ddd}
-.toast{position:fixed;bottom:16px;right:16px;background:#1a1a1a;color:#fff;padding:8px 14px;border-radius:7px;font-size:12px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;max-width:300px}
+.toast{position:fixed;bottom:16px;right:16px;background:#1a1a1a;color:#fff;padding:8px 14px;border-radius:7px;font-size:12px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
 .toast.show{opacity:1}
 .spin{width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:none}
 .spin.on{display:inline-block}
 @keyframes sp{to{transform:rotate(360deg)}}
-.help{font-size:11px;color:#666;margin-top:4px;line-height:1.5;background:#fffbea;border-radius:5px;padding:5px 7px;border-left:3px solid #f5d020}
+.help{font-size:11px;color:#777;margin-top:4px;line-height:1.4;background:#fffbea;border-radius:5px;padding:5px 7px}
 </style>
 </head>
 <body>
@@ -82,9 +82,8 @@ input.inp:focus{border-color:var(--acc)}
 
   <div class="ss">
     <h3>Document AI Endpoint</h3>
-    <input class="inp" id="cfUrl" type="text"
-      value="https://us-central1-prime-micron-480206-j3.cloudfunctions.net/mechprotools-process">
-    <div style="font-size:11px;color:#888;margin-top:3px">Layout Parser — pre-configured</div>
+    <input class="inp" id="cfUrl" type="text" value="https://us-central1-prime-micron-480206-j3.cloudfunctions.net/mechprotools-process">
+    <div style="font-size:11px;color:#2e7d32;margin-top:3px">✓ Connected</div>
   </div>
 
   <div class="ss">
@@ -97,7 +96,7 @@ input.inp:focus{border-color:var(--acc)}
     </div>
     <div class="finfo" id="finfo" style="display:none">
       <span class="finfo-n" id="fname"></span>
-      <button style="background:none;border:none;cursor:pointer;color:#888" onclick="clearFile()">✕</button>
+      <button style="background:none;border:none;cursor:pointer;color:#888;font-size:12px" onclick="clearFile()">✕</button>
     </div>
     <button class="btn btn-pri" id="procBtn" onclick="processDrawing()" disabled>
       <div class="spin" id="procSpin"></div>
@@ -114,26 +113,22 @@ input.inp:focus{border-color:var(--acc)}
     <div class="mode-btns">
       <div class="mbtn on" id="mBox" onclick="setMode('box')">⬜ Box</div>
       <div class="mbtn" id="mClick" onclick="setMode('click')">🎯 Click</div>
-      <div class="mbtn" id="mDrag" onclick="setMode('drag')">✋ Drag</div>
+      <div class="mbtn" id="mMove" onclick="setMode('pan')">✋ Pan</div>
     </div>
-    <div class="help" id="modeHelp">
-      Draw a box around a section. Balloons placed outside the dimension text — no overlap.
-    </div>
+    <div class="help" id="modeHelp">Draw a box around any section — balloons placed instantly on all dimensions inside.</div>
   </div>
 
   <div class="ss">
     <h3>Settings</h3>
     <div class="sr">
       <span class="sl">Balloon size</span>
-      <input type="range" id="bsz" min="4" max="12" value="7" step=".5"
-        oninput="document.getElementById('bszv').textContent=this.value+'mm'">
+      <input type="range" id="bsz" min="4" max="12" value="7" step=".5" oninput="document.getElementById('bszv').textContent=this.value+'mm'">
       <span class="sv" id="bszv">7mm</span>
     </div>
     <div class="sr">
       <span class="sl">Max leader</span>
-      <input type="range" id="lmx" min="5" max="40" value="12" step="1"
-        oninput="document.getElementById('lmxv').textContent=this.value+'mm'">
-      <span class="sv" id="lmxv">12mm</span>
+      <input type="range" id="lmx" min="8" max="35" value="22" step="1" oninput="document.getElementById('lmxv').textContent=this.value+'mm'">
+      <span class="sv" id="lmxv">22mm</span>
     </div>
   </div>
 
@@ -141,7 +136,7 @@ input.inp:focus{border-color:var(--acc)}
     <h3>Results</h3>
     <div class="stats">
       <div class="sbox"><div class="v" id="sv1">0</div><div class="l">Placed</div></div>
-      <div class="sbox"><div class="v" id="sv2">0</div><div class="l">Loaded</div></div>
+      <div class="sbox"><div class="v" id="sv2">0</div><div class="l">Available</div></div>
       <div class="sbox"><div class="v" id="sv3">0</div><div class="l">Boxes</div></div>
     </div>
     <button class="btn btn-suc" onclick="exportPDF()">⬇ Download PDF</button>
@@ -150,690 +145,533 @@ input.inp:focus{border-color:var(--acc)}
   </div>
 
   <div class="ss" style="padding-bottom:0">
-    <h3>Balloons (<span id="bc">0</span>)
-      &nbsp;·&nbsp;
-      <span id="dimCount" style="color:var(--acc);font-size:10px">0 dims loaded</span>
-    </h3>
+    <h3>Balloons (<span id="bc">0</span>) &nbsp;·&nbsp; <span id="dimCount" style="color:var(--acc);font-size:10px">0 dims loaded</span></h3>
   </div>
   <div class="blist" id="blist"></div>
 
-</div><!-- /sb -->
+</div>
 
 <div class="ca" id="ca">
   <div class="cph" id="cph">
-    <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1">
-      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-    </svg>
+    <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
     <p>Upload drawing → Process → Draw boxes</p>
   </div>
-  <canvas id="mc"></canvas>
-  <div class="tb" id="tb">
-    <button class="tbb" onclick="doZoom(1.25)">＋</button>
-    <button class="tbb" onclick="doZoom(.8)">－</button>
-    <span style="font-size:11px;color:#888;min-width:36px;text-align:center" id="zl">100%</span>
-    <div class="tbs"></div>
-    <button class="tbb" onclick="fitView()">⊡ Fit</button>
-    <div class="tbs"></div>
-    <span style="font-size:11px;font-weight:600;color:var(--acc)" id="mInd">⬜ Box</span>
-  </div>
+  <canvas id="mainCanvas"></canvas>
 </div>
 
-</div><!-- /app -->
+</div>
+
+<div class="tb" id="tb">
+  <button class="tbb" onclick="doZoom(1.25)">＋</button>
+  <button class="tbb" onclick="doZoom(.8)">－</button>
+  <span style="font-size:11px;color:#888;min-width:34px;text-align:center" id="zl">100%</span>
+  <div class="tbs"></div>
+  <button class="tbb" onclick="fitView()">⊡ Fit</button>
+  <div class="tbs"></div>
+  <span style="font-size:11px;font-weight:600;color:var(--acc)" id="modeInd">□ Box</span>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// ── STATE ──────────────────────────────────────────────────────────────────
-const canvas = document.getElementById('mc');
+// ── SINGLE CANVAS APPROACH ─────────────────────────────────────────────────
+// One canvas does everything. Mouse events on the canvas itself.
+// No overlay canvas needed — eliminates all the BC/getContext errors.
+
+const canvas = document.getElementById('mainCanvas');
 const ctx    = canvas.getContext('2d');
+
+let workCanvas = null;  // clean drawing pixels
 let W=0, H=0, PX_PER_MM=0;
-let workCanvas = null;
-let blankMap   = null;
-let allDims    = [];
-let balloons   = [];
-let history    = [];
-let boxCount   = 0;
-let mode       = 'box';
-let zoomLvl    = 1;
+let zoomLvl=1;
 let panX=0, panY=0;
-let rawBytes   = null;
-let rawMime    = 'image/jpeg';
-
-// Box drawing state
-let boxStart = null, boxCurr = null;
-// Drag state
-let dragBalloon = null, dragOX = 0, dragOY = 0;
-
-// ── COLOURS ────────────────────────────────────────────────────────────────
-const BLUE  = '#0A1EA0';
-const WHITE = '#ffffff';
+let allDims=[];
+let balloons=[];
+let blankMap=null;
+let mode='box';
+let boxStart=null;
+let boxCurrent=null;
+let rawBytes=null, rawMime='image/jpeg';
+let history=[];
+let boxCount=0;
+let isPanning=false, panStart=null, panOrigin=null;
 
 // ── FILE LOAD ──────────────────────────────────────────────────────────────
 const upz = document.getElementById('upz');
 const fi  = document.getElementById('fileInput');
-upz.addEventListener('dragover', e=>{e.preventDefault();upz.style.borderColor='#185FA5'});
-upz.addEventListener('dragleave', ()=>{upz.style.borderColor=''});
-upz.addEventListener('drop', e=>{e.preventDefault();upz.style.borderColor='';
-  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);});
-fi.addEventListener('change', ()=>{if(fi.files[0]) handleFile(fi.files[0]);});
+
+upz.addEventListener('dragover',e=>{e.preventDefault();upz.style.borderColor='#185FA5'});
+upz.addEventListener('dragleave',()=>{upz.style.borderColor='#ccc'});
+upz.addEventListener('drop',e=>{
+  e.preventDefault();upz.style.borderColor='#ccc';
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fi.addEventListener('change',()=>{if(fi.files[0]) handleFile(fi.files[0]);});
 
 async function handleFile(f) {
-  const orig = await f.arrayBuffer();
-  rawBytes   = orig.slice(0);
-  const nm   = f.name.toLowerCase();
-  rawMime    = nm.endsWith('.pdf') ? 'application/pdf'
-             : nm.endsWith('.png') ? 'image/png' : 'image/jpeg';
+  const originalBuf = await f.arrayBuffer();
+  // Copy the buffer BEFORE PDF.js detaches it
+  rawBytes = originalBuf.slice(0);
+  const nm  = f.name.toLowerCase();
+  rawMime   = nm.endsWith('.pdf')?'application/pdf':nm.endsWith('.png')?'image/png':'image/jpeg';
   document.getElementById('fname').textContent = f.name;
-  document.getElementById('finfo').style.display = 'flex';
-  document.getElementById('upz').style.display   = 'none';
+  document.getElementById('finfo').style.display='flex';
+  document.getElementById('upz').style.display='none';
   setP(10,'Loading drawing...'); showP(true);
   try {
-    if(rawMime === 'application/pdf') await loadPDF(orig.slice(0));
-    else                              await loadIMG(orig.slice(0), rawMime);
+    if(rawMime==='application/pdf') await loadPDF(rawBytes);
+    else await loadIMG(rawBytes, rawMime);
     showP(false);
-    document.getElementById('procBtn').disabled = false;
-    toast('Drawing loaded — enter API key then click ⚡ Process Drawing');
-  } catch(e) { showP(false); toast('Load error: '+e.message); console.error(e); }
+    document.getElementById('procBtn').disabled=false;
+    toast('Drawing loaded! Paste URL then click Process Drawing.');
+  } catch(e) {
+    showP(false);
+    toast('Load error: '+e.message);
+    console.error(e);
+  }
 }
 
 async function loadPDF(buf) {
-  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
-  const pg  = await pdf.getPage(1);
-  // Get natural page dimensions (scale=1)
-  const vpNat = pg.getViewport({scale: 1.0});
-  // Render at 3x for display quality
-  const vp  = pg.getViewport({scale: 3.0});
-  const oc  = document.createElement('canvas');
+  // Use a copy for PDF.js so original rawBytes stays intact for API call
+  const pdfBuf = buf.slice(0);
+  const pdf=await pdfjsLib.getDocument({data:pdfBuf}).promise;
+  const pg=await pdf.getPage(1);
+  const vp=pg.getViewport({scale:3.0});
+  const oc=document.createElement('canvas');
   oc.width=vp.width; oc.height=vp.height;
-  await pg.render({canvasContext: oc.getContext('2d'), viewport: vp}).promise;
-  // Store natural dimensions for API (Document AI works from PDF directly)
-  window._pdfNatW = Math.round(vpNat.width);
-  window._pdfNatH = Math.round(vpNat.height);
-  setupWork(oc);
+  await pg.render({canvasContext:oc.getContext('2d'),viewport:vp}).promise;
+  setupDrawing(oc);
 }
 
 async function loadIMG(buf, mime) {
-  const url = URL.createObjectURL(new Blob([buf],{type:mime}));
+  const blob=new Blob([buf],{type:mime});
+  const url=URL.createObjectURL(blob);
   await new Promise((res,rej)=>{
-    const img = new Image();
-    img.onload = () => {
-      const oc = document.createElement('canvas');
+    const img=new Image();
+    img.onload=()=>{
+      const oc=document.createElement('canvas');
       oc.width=img.naturalWidth; oc.height=img.naturalHeight;
       oc.getContext('2d').drawImage(img,0,0);
       URL.revokeObjectURL(url);
-      setupWork(oc); res();
+      setupDrawing(oc);
+      res();
     };
-    img.onerror = rej;
-    img.src = url;
+    img.onerror=rej;
+    img.src=url;
   });
 }
 
-function setupWork(oc) {
-  workCanvas = oc; W = oc.width; H = oc.height;
-  PX_PER_MM  = W / 841.0;
-  buildBlankMap(oc);
-  document.getElementById('cph').style.display = 'none';
-  document.getElementById('tb').style.display  = 'flex';
-  fitView();
-}
-
-// ── BLANK MAP ──────────────────────────────────────────────────────────────
-function buildBlankMap(oc) {
-  const tmp = document.createElement('canvas');
+function setupDrawing(oc) {
+  workCanvas=oc; W=oc.width; H=oc.height;
+  PX_PER_MM=W/841.0;
+  // Build blank map
+  const tmp=document.createElement('canvas');
   tmp.width=W; tmp.height=H;
-  tmp.getContext('2d').drawImage(oc,0,0);
-  const id = tmp.getContext('2d').getImageData(0,0,W,H).data;
-  blankMap = new Uint8Array(W*H);
-  for(let i=0;i<W*H;i++)
-    blankMap[i] = (id[i*4]>210 && id[i*4+1]>210 && id[i*4+2]>210) ? 1 : 0;
-}
-
-function isBlank(cx,cy,r) {
-  if(!blankMap || cx<0||cy<0||cx>=W||cy>=H) return false;
-  let b=0,t=0;
-  const x1=Math.max(0,cx-r), y1=Math.max(0,cy-r);
-  const x2=Math.min(W-1,cx+r), y2=Math.min(H-1,cy+r);
-  for(let y=y1;y<=y2;y++) for(let x=x1;x<=x2;x++){b+=blankMap[y*W+x];t++;}
-  return t>0 && b/t > 0.80;
-}
-
-// ── FIND BALLOON POSITION — 100% placement guaranteed ─────────────────────
-// Rules:
-// 1. White box painted behind dimension text — erases geometry
-// 2. Balloon always placed — no blank space check, no skipping
-// 3. Default direction: above the dimension
-// 4. If balloon overlaps existing balloon — try other directions, then shift
-// 5. Orthogonal L-leader if balloon must go sideways
-
-function findBalloonPos(dim, placed) {
-  const BR   = Math.round(parseFloat(document.getElementById('bsz').value) * PX_PER_MM);
-  const GAP  = Math.round(PX_PER_MM * 3);   // 3mm gap from text edge to leader start
-  const STEP = BR * 2 + Math.round(PX_PER_MM * 2); // distance from dim center to balloon center
-
-  const tcx = dim.cx, tcy = dim.cy;
-  const tw  = dim.w || 50, th = dim.h || 24;
-
-  // 8 candidate directions — prefer above, then sides, then below
-  const dirs = [
-    {dx: 0,     dy:-1,    name:'above'},
-    {dx: 1,     dy: 0,    name:'right'},
-    {dx:-1,     dy: 0,    name:'left'},
-    {dx: 0,     dy: 1,    name:'below'},
-    {dx: 0.71,  dy:-0.71, name:'above-right'},
-    {dx:-0.71,  dy:-0.71, name:'above-left'},
-    {dx: 0.71,  dy: 0.71, name:'below-right'},
-    {dx:-0.71,  dy: 0.71, name:'below-left'},
-  ];
-
-  // Try each direction at increasing distances
-  for(const dir of dirs) {
-    for(let dist = STEP; dist <= STEP * 3; dist += Math.round(BR * 0.8)) {
-      const cx = Math.round(tcx + dir.dx * dist);
-      const cy = Math.round(tcy + dir.dy * dist);
-
-      // Stay inside drawing bounds
-      if(cx - BR < 10 || cx + BR > W - 10) continue;
-      if(cy - BR < 10 || cy + BR > H - 10) continue;
-
-      // Stay in valid drawing zone
-      if(cx < W * 0.09) continue;
-      if(cy < H * 0.065) continue;
-      if(cy > H * 0.89) continue;
-
-      // Must not overlap existing balloon circles
-      if(placed.some(p => Math.hypot(cx-p[0], cy-p[1]) < BR * 2.2)) continue;
-
-      // Compute tip — 3mm outside text box toward balloon
-      const [tipx, tipy] = tipAtEdge(tcx, tcy, tw, th, cx, cy);
-
-      return {cx, cy, tipx, tipy, dir: dir.name};
-    }
+  const tc=tmp.getContext('2d');
+  tc.drawImage(oc,0,0);
+  const id=tc.getImageData(0,0,W,H).data;
+  blankMap=new Uint8Array(W*H);
+  for(let i=0;i<W*H;i++){
+    blankMap[i]=(id[i*4]>210&&id[i*4+1]>210&&id[i*4+2]>210)?1:0;
   }
-
-  // Last resort: force place above even if overlapping
-  // Better to overlap than skip
-  const fallCx = tcx;
-  const fallCy = Math.max(BR + 10, tcy - STEP);
-  const [ftipx, ftipy] = tipAtEdge(tcx, tcy, tw, th, fallCx, fallCy);
-  return {cx: fallCx, cy: fallCy, tipx: ftipx, tipy: ftipy, dir: 'above-force'};
-}
-
-
-// ── TIP AT TEXT EDGE ───────────────────────────────────────────────────────
-// Returns the exact point on the text bounding box edge
-// facing toward the balloon — arrow tip goes HERE
-function tipAtEdge(tcx, tcy, tw, th, bx, by) {
-  // Arrow tip starts 3mm OUTSIDE the dimension text bounding box
-  // This guarantees the arrow never touches or overlaps the dimension text
-  const GAP = Math.round(PX_PER_MM * 3.0);
-  const dx = bx - tcx, dy = by - tcy;
-  const hw = tw/2 + GAP;
-  const hh = th/2 + GAP;
-  if(Math.abs(dx) < 0.001) return [tcx, tcy - Math.sign(dy)*hh];
-  if(Math.abs(dy) < 0.001) return [tcx - Math.sign(dx)*hw, tcy];
-  const tlr = hw / Math.abs(dx);
-  const ttb = hh / Math.abs(dy);
-  if(tlr < ttb) return [Math.round(tcx - Math.sign(dx)*hw), Math.round(tcy - dy*tlr)];
-  return [Math.round(tcx - dx*ttb), Math.round(tcy - Math.sign(dy)*hh)];
-}
-
-// ── DRAW ONE BALLOON ─────────────────────────────────────────────────────────
-// White box behind dim text + straight/orthogonal leader + balloon
-function drawBalloon(c, bx, by, tipx, tipy, num, BR, tw, th) {
-  const LW = Math.max(2, Math.round(PX_PER_MM * 0.45));
-  const FS = Math.round(BR * 1.12);
-
-  // 1. White box behind dimension text — erases geometry lines
-  if(tw && th) {
-    const PAD = Math.round(PX_PER_MM * 1.5);
-    c.fillStyle = '#ffffff';
-    c.fillRect(
-      Math.round(tipx - (bx>tipx?0:tw) - PAD*2),
-      Math.round(tipy - th/2 - PAD),
-      tw + PAD*4,
-      th + PAD*2
-    );
-  }
-
-  // 2. Leader line — straight from tip to balloon edge
-  const dx = bx-tipx, dy = by-tipy;
-  const dist = Math.hypot(dx, dy);
-  if(dist > 2) {
-    const nx = dx/dist, ny = dy/dist;
-    const ex = bx - nx*(BR+1), ey = by - ny*(BR+1);
-    c.strokeStyle = '#0A1EA0';
-    c.lineWidth   = LW;
-    c.beginPath();
-    // If mostly vertical — straight line
-    // If mostly horizontal — L-shape (up then across)
-    if(Math.abs(dy) >= Math.abs(dx)*0.5) {
-      c.moveTo(tipx, tipy);
-      c.lineTo(ex, ey);
-    } else {
-      // L-shape: go vertical from tip first, then horizontal to balloon
-      c.moveTo(tipx, tipy);
-      c.lineTo(tipx, by);
-      c.lineTo(ex, ey);
-    }
-    c.stroke();
-  }
-
-  // 3. Balloon circle
-  c.fillStyle = '#ffffff';
-  c.beginPath(); c.arc(bx, by, BR, 0, Math.PI*2); c.fill();
-  c.strokeStyle = '#0A1EA0';
-  c.lineWidth = Math.max(2, LW*1.1);
-  c.beginPath(); c.arc(bx, by, BR, 0, Math.PI*2); c.stroke();
-
-  // 4. Number
-  c.fillStyle = '#0A1EA0';
-  c.font = `bold ${FS}px 'Segoe UI',sans-serif`;
-  c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText(String(num), bx, by+1);
+  document.getElementById('cph').style.display='none';
+  document.getElementById('tb').style.display='flex';
+  fitView();
 }
 
 // ── RENDER ─────────────────────────────────────────────────────────────────
 function render() {
-  const ca = document.getElementById('ca');
-  canvas.width  = ca.clientWidth;
-  canvas.height = ca.clientHeight;
-
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#c8c8c4'; ctx.fillRect(0,0,canvas.width,canvas.height);
-
   if(!workCanvas) return;
-
-  // Draw the engineering drawing
-  const dw = Math.round(W * zoomLvl);
-  const dh = Math.round(H * zoomLvl);
-  ctx.drawImage(workCanvas, panX, panY, dw, dh);
-
-  // Draw balloons at current zoom
-  const BR = Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM*zoomLvl);
-  balloons.forEach(b => {
-    const sbx  = Math.round(b.bx   * zoomLvl + panX);
-    const sby  = Math.round(b.by   * zoomLvl + panY);
-    const stx  = Math.round(b.tipx * zoomLvl + panX);
-    const sty  = Math.round(b.tipy * zoomLvl + panY);
-
-    drawBalloon(ctx, sbx, sby, stx, sty, b.num, BR);
+  const ca=document.getElementById('ca');
+  // Size canvas to fill the area
+  canvas.width=ca.clientWidth;
+  canvas.height=ca.clientHeight;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Draw background
+  ctx.fillStyle='#d0d0cc';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Draw drawing with pan+zoom
+  const dw=Math.round(W*zoomLvl);
+  const dh=Math.round(H*zoomLvl);
+  ctx.drawImage(workCanvas,panX,panY,dw,dh);
+  // Draw balloons
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM*zoomLvl);
+  balloons.forEach(b=>{
+    const sbx=Math.round(b.bx*zoomLvl+panX);
+    const sby=Math.round(b.by*zoomLvl+panY);
+    const stx=Math.round(b.tipx*zoomLvl+panX);
+    const sty=Math.round(b.tipy*zoomLvl+panY);
+    drawBalloon(sbx,sby,stx,sty,b.num,BR);
   });
-
-  // Draw box preview while dragging
-  if(boxStart && boxCurr) {
-    ctx.strokeStyle='rgba(24,95,165,0.85)';
-    ctx.lineWidth=2; ctx.setLineDash([6,3]);
-    ctx.strokeRect(boxStart.sx, boxStart.sy,
-                   boxCurr.sx-boxStart.sx, boxCurr.sy-boxStart.sy);
-    ctx.fillStyle='rgba(24,95,165,0.06)';
-    ctx.fillRect(boxStart.sx, boxStart.sy,
-                 boxCurr.sx-boxStart.sx, boxCurr.sy-boxStart.sy);
+  // Draw selection box
+  if(boxStart&&boxCurrent){
+    ctx.strokeStyle='rgba(24,95,165,0.9)';
+    ctx.lineWidth=2;
+    ctx.setLineDash([6,3]);
+    ctx.strokeRect(boxStart.sx,boxStart.sy,boxCurrent.sx-boxStart.sx,boxCurrent.sy-boxStart.sy);
+    ctx.fillStyle='rgba(24,95,165,0.07)';
+    ctx.fillRect(boxStart.sx,boxStart.sy,boxCurrent.sx-boxStart.sx,boxCurrent.sy-boxStart.sy);
     ctx.setLineDash([]);
   }
-
-  document.getElementById('zl').textContent = Math.round(zoomLvl*100)+'%';
+  document.getElementById('zl').textContent=Math.round(zoomLvl*100)+'%';
 }
 
-// ── COORDINATE CONVERSION ──────────────────────────────────────────────────
-function screenToDrawing(sx,sy) {
-  return {x: (sx-panX)/zoomLvl, y: (sy-panY)/zoomLvl};
+// ── DRAWING BALLOON ────────────────────────────────────────────────────────
+function drawBalloon(bx,by,tx,ty,num,BR) {
+  const BLUE='#0A1EA0';
+  const LW=Math.max(2,Math.round(BR*.08));
+  const DOT=Math.max(4,Math.round(BR*.12));
+  const dx=bx-tx,dy=by-ty,dist=Math.hypot(dx,dy);
+  if(dist>1){
+    const ex=bx-(dx/dist)*(BR+1),ey=by-(dy/dist)*(BR+1);
+    ctx.strokeStyle=BLUE; ctx.lineWidth=LW;
+    ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(ex,ey); ctx.stroke();
+    const nx=(tx-bx)/dist,ny=(ty-by)/dist,px=-ny,py=nx;
+    const al=BR*.38,aw=BR*.18;
+    ctx.fillStyle=BLUE; ctx.beginPath();
+    ctx.moveTo(tx,ty);
+    ctx.lineTo(tx-nx*al+px*aw,ty-ny*al+py*aw);
+    ctx.lineTo(tx-nx*al-px*aw,ty-ny*al-py*aw);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle=BLUE;
+  ctx.beginPath(); ctx.arc(tx,ty,DOT,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(bx,by,BR,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=BLUE; ctx.lineWidth=Math.max(2,LW*1.3);
+  ctx.beginPath(); ctx.arc(bx,by,BR,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle=BLUE;
+  ctx.font=`bold ${Math.round(BR*1.1)}px 'Segoe UI',sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(String(num),bx,by+1);
 }
-function getPos(e) {
-  const r = canvas.getBoundingClientRect();
-  return {sx: e.clientX-r.left, sy: e.clientY-r.top};
+
+// ── CANVAS COORDS (screen → drawing space) ─────────────────────────────────
+function toDrawing(sx,sy) {
+  return {
+    x: Math.round((sx-panX)/zoomLvl),
+    y: Math.round((sy-panY)/zoomLvl)
+  };
+}
+
+function getCanvasPos(e) {
+  const r=canvas.getBoundingClientRect();
+  return {sx:e.clientX-r.left, sy:e.clientY-r.top};
 }
 
 // ── MOUSE EVENTS ────────────────────────────────────────────────────────────
-canvas.addEventListener('mousedown', e => {
+canvas.addEventListener('mousedown',e=>{
   if(!workCanvas) return;
-  const pos = getPos(e);
-  const dp  = screenToDrawing(pos.sx, pos.sy);
-  if(mode === 'box') {
-    boxStart = {sx: pos.sx, sy: pos.sy, dx: dp.x, dy: dp.y};
-    boxCurr  = null;
-  } else if(mode === 'drag') {
-    const BR = Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-    dragBalloon = balloons.find(b => Math.hypot(b.bx-dp.x, b.by-dp.y) < BR*1.4);
-    if(dragBalloon) {
-      dragOX = dp.x - dragBalloon.bx;
-      dragOY = dp.y - dragBalloon.by;
-      canvas.style.cursor='grabbing';
-    }
+  const pos=getCanvasPos(e);
+  if(mode==='box'){
+    boxStart={sx:pos.sx,sy:pos.sy,...toDrawing(pos.sx,pos.sy)};
+    boxCurrent=null;
+  } else if(mode==='pan'){
+    isPanning=true;
+    panStart={x:e.clientX,y:e.clientY};
+    panOrigin={x:panX,y:panY};
+    canvas.style.cursor='grabbing';
   }
 });
 
-canvas.addEventListener('mousemove', e => {
+canvas.addEventListener('mousemove',e=>{
   if(!workCanvas) return;
-  const pos = getPos(e);
-  const dp  = screenToDrawing(pos.sx, pos.sy);
-  if(mode === 'box' && boxStart) {
-    boxCurr = {sx: pos.sx, sy: pos.sy};
+  const pos=getCanvasPos(e);
+  if(mode==='box'&&boxStart){
+    boxCurrent={sx:pos.sx,sy:pos.sy,...toDrawing(pos.sx,pos.sy)};
     render();
-  } else if(mode === 'drag' && dragBalloon) {
-    dragBalloon.bx = dp.x - dragOX;
-    dragBalloon.by = dp.y - dragOY;
-    // Recalculate tip to follow new balloon position
-    const [tx,ty] = tipAtEdge(dragBalloon.tx, dragBalloon.ty,
-                               dragBalloon.tw||50, dragBalloon.th||24,
-                               dragBalloon.bx, dragBalloon.by);
-    dragBalloon.tipx = tx; dragBalloon.tipy = ty;
+  } else if(mode==='pan'&&isPanning){
+    panX=panOrigin.x+(e.clientX-panStart.x);
+    panY=panOrigin.y+(e.clientY-panStart.y);
     render();
   }
 });
 
-canvas.addEventListener('mouseup', e => {
+canvas.addEventListener('mouseup',e=>{
   if(!workCanvas) return;
-  const pos = getPos(e);
-  const dp  = screenToDrawing(pos.sx, pos.sy);
-  if(mode === 'box' && boxStart) {
-    const x1=Math.min(boxStart.dx,dp.x), y1=Math.min(boxStart.dy,dp.y);
-    const x2=Math.max(boxStart.dx,dp.x), y2=Math.max(boxStart.dy,dp.y);
-    boxStart=null; boxCurr=null;
-    if(x2-x1 > 20 && y2-y1 > 20) placeInBox(x1,y1,x2,y2);
+  const pos=getCanvasPos(e);
+  if(mode==='box'&&boxStart){
+    const end=toDrawing(pos.sx,pos.sy);
+    const x1=Math.min(boxStart.x,end.x),y1=Math.min(boxStart.y,end.y);
+    const x2=Math.max(boxStart.x,end.x),y2=Math.max(boxStart.y,end.y);
+    boxStart=null; boxCurrent=null;
+    if(x2-x1>20&&y2-y1>20) placeInBox(x1,y1,x2,y2);
     else render();
-  } else if(mode === 'click') {
-    placeOnClick(dp.x, dp.y);
-  } else if(mode === 'drag' && dragBalloon) {
-    dragBalloon = null;
-    canvas.style.cursor = 'grab';
-    updateList();
+  } else if(mode==='click'){
+    const dp=toDrawing(pos.sx,pos.sy);
+    placeOnClick(dp.x,dp.y);
+  } else if(mode==='pan'){
+    isPanning=false;
+    canvas.style.cursor='grab';
   }
 });
 
-canvas.addEventListener('wheel', e => {
+canvas.addEventListener('wheel',e=>{
   e.preventDefault();
-  const pos = getPos(e);
-  const f   = e.deltaY < 0 ? 1.12 : 0.89;
-  const nz  = Math.max(.05, Math.min(5, zoomLvl*f));
-  panX = pos.sx - (pos.sx - panX)*(nz/zoomLvl);
-  panY = pos.sy - (pos.sy - panY)*(nz/zoomLvl);
-  zoomLvl = nz;
+  const pos=getCanvasPos(e);
+  const factor=e.deltaY<0?1.1:0.9;
+  const newZ=Math.max(.05,Math.min(5,zoomLvl*factor));
+  panX=pos.sx-(pos.sx-panX)*(newZ/zoomLvl);
+  panY=pos.sy-(pos.sy-panY)*(newZ/zoomLvl);
+  zoomLvl=newZ;
   render();
-}, {passive:false});
+},{passive:false});
 
-// ── PLACE IN BOX ───────────────────────────────────────────────────────────
+// ── TIP AT EDGE ────────────────────────────────────────────────────────────
+function tipAtEdge(tcx,tcy,tw,th,bx,by) {
+  const dx=bx-tcx,dy=by-tcy;
+  const hw=tw/2+4,hh=th/2+4;
+  if(Math.abs(dx)<.001) return [tcx,tcy-Math.sign(dy)*hh];
+  if(Math.abs(dy)<.001) return [tcx-Math.sign(dx)*hw,tcy];
+  const tlr=hw/Math.abs(dx),ttb=hh/Math.abs(dy);
+  if(tlr<ttb) return [tcx-Math.sign(dx)*hw,tcy-dy*tlr];
+  return [tcx-dx*ttb,tcy-Math.sign(dy)*hh];
+}
+
+// ── BLANK SPACE FINDER (IMPROVED — aligned + no leader crossing) ──────────
+function isBlank(cx,cy,r) {
+  if(!blankMap) return true;
+  let blank=0,total=0;
+  const x1=Math.max(0,cx-r),y1=Math.max(0,cy-r);
+  const x2=Math.min(W,cx+r),y2=Math.min(H,cy+r);
+  for(let y=y1;y<y2;y++) for(let x=x1;x<x2;x++){blank+=blankMap[y*W+x];total++;}
+  return total>0&&blank/total>.78;
+}
+
+// Check if a line from (ax,ay) to (bx,by) passes through any existing balloon
+function leaderCrossesBalloon(ax,ay,bx,by,placed,BR) {
+  for(const p of placed) {
+    // Distance from point p to line segment (ax,ay)-(bx,by)
+    const dx=bx-ax, dy=by-ay;
+    const len2=dx*dx+dy*dy;
+    if(len2<1) continue;
+    let t=((p[0]-ax)*dx+(p[1]-ay)*dy)/len2;
+    t=Math.max(0,Math.min(1,t));
+    const closestX=ax+t*dx, closestY=ay+t*dy;
+    const dist=Math.hypot(p[0]-closestX,p[1]-closestY);
+    if(dist<BR*1.3) return true; // leader passes through a balloon
+  }
+  return false;
+}
+
+// Find blank space — prefers the given direction for uniform alignment
+function findBlank(tx,ty,placed,preferDir) {
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
+  const MAXD=Math.round(parseFloat(document.getElementById('lmx').value)*PX_PER_MM);
+  
+  // Build angle search order: prefer the given direction, then nearby angles, then others
+  const angles=[];
+  if(preferDir!==undefined) {
+    // Search preferred direction first (±30°), then expand
+    for(let offset=0;offset<=180;offset+=8) {
+      const a1=(preferDir+offset)%360;
+      const a2=(preferDir-offset+360)%360;
+      if(!angles.includes(a1)) angles.push(a1);
+      if(offset>0 && !angles.includes(a2)) angles.push(a2);
+    }
+  } else {
+    for(let deg=0;deg<360;deg+=8) angles.push(deg);
+  }
+  
+  for(let dist=Math.round(BR*1.6);dist<=MAXD;dist+=Math.round(BR*0.5)){
+    const hits=[];
+    for(const deg of angles){
+      const ang=deg*Math.PI/180;
+      const cx=Math.round(tx+dist*Math.cos(ang));
+      const cy=Math.round(ty+dist*Math.sin(ang));
+      if(cx-BR<8||cx+BR>W-8||cy-BR<8||cy+BR>H-8) continue;
+      if(cx<W*.09||cy<H*.08||cy>H*.87) continue;
+      if(!isBlank(cx,cy,Math.round(BR*1.2))) continue;
+      if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1])<BR*2.4)) continue;
+      // CHECK: leader line must not cross any existing balloon
+      if(leaderCrossesBalloon(tx,ty,cx,cy,placed,BR)) continue;
+      // Score: prefer preferred direction (lower angle diff = better)
+      let score=dist;
+      if(preferDir!==undefined) {
+        const adiff=Math.abs(((deg-preferDir+180)%360)-180);
+        score=dist+adiff*2; // penalize deviation from preferred direction
+      }
+      hits.push([score,cx,cy]);
+    }
+    if(hits.length){hits.sort((a,b)=>a[0]-b[0]);return[hits[0][1],hits[0][2]];}
+  }
+  return null;
+}
+
+// ── DETERMINE BEST EDGE FOR BOX ───────────────────────────────────────────
+function bestEdgeForBox(x1,y1,x2,y2) {
+  // Find which edge of the box has the most blank space outside it
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
+  const margin=BR*3;
+  const edges=[
+    {dir:270, label:'top',    space: y1 > margin},           // balloons go above
+    {dir:90,  label:'bottom', space: (H-y2) > margin},       // balloons go below
+    {dir:180, label:'left',   space: x1 > margin},           // balloons go left
+    {dir:0,   label:'right',  space: (W-x2) > margin},       // balloons go right
+  ];
+  // Prefer top, then right, then bottom, then left (common drafting convention)
+  const priority=['top','right','bottom','left'];
+  for(const p of priority) {
+    const e=edges.find(e=>e.label===p);
+    if(e && e.space) return e;
+  }
+  return edges[0]; // fallback to top
+}
+
+// ── PLACE IN BOX (IMPROVED — uniform alignment, no leader crossing) ───────
 function placeInBox(x1,y1,x2,y2) {
-  if(!allDims.length) { toast('Click ⚡ Process Drawing first'); return; }
-  const BR = Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-
-  // Find dims whose CENTER is inside the box and not yet ballooned
-  const inBox = allDims.filter(d =>
-    d.cx >= x1 && d.cx <= x2 &&
-    d.cy >= y1 && d.cy <= y2 &&
-    !balloons.some(b => Math.hypot(b.tx-d.cx, b.ty-d.cy) < BR*1.5)
-  );
-
-  if(!inBox.length) { toast('No unballooned dimensions found in this box'); return; }
-
-  // Sort: top to bottom, left to right — gives organised sequential numbering
-  inBox.sort((a,b) => (a.cy !== b.cy ? a.cy-b.cy : a.cx-b.cx));
-
+  if(!allDims.length){toast('Process drawing first to load dimensions');return;}
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
+  const placed=balloons.map(b=>[b.bx,b.by]);
   history.push(balloons.length);
-  const placed = balloons.map(b=>[b.bx,b.by]);
-  let ok=0, skip=0;
-
-  inBox.forEach(dim => {
-    const result = findBalloonPos(dim, placed);
-    if(result) {
-      const {cx:bx, cy:by} = result;
-      placed.push([bx,by]);
-      const [tipx,tipy] = tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
-      balloons.push({
-        num:   balloons.length+1,
-        text:  dim.text,
-        type:  dim.type,
-        bx, by,
-        tx:    dim.cx, ty: dim.cy,
-        tipx, tipy,
-        tw:    dim.w||50, th: dim.h||24
-      });
+  
+  const inBox=allDims.filter(d=>
+    d.cx>=x1&&d.cx<=x2&&d.cy>=y1&&d.cy<=y2&&
+    !balloons.some(b=>Math.hypot(b.tx-d.cx,b.ty-d.cy)<BR*1.5)
+  );
+  if(!inBox.length){toast('No unballooned dimensions in this box');return;}
+  
+  // Determine best edge to place balloons
+  const edge=bestEdgeForBox(x1,y1,x2,y2);
+  
+  // Sort dimensions based on edge direction
+  if(edge.label==='top'||edge.label==='bottom') {
+    inBox.sort((a,b)=>a.cx-b.cx); // left to right
+  } else {
+    inBox.sort((a,b)=>a.cy-b.cy); // top to bottom
+  }
+  
+  // Calculate evenly spaced balloon positions along the edge
+  const spacing=BR*2.6;
+  let ok=0;
+  
+  inBox.forEach((dim,i)=>{
+    const num=balloons.length+1;
+    
+    // Try preferred direction first (toward the chosen edge)
+    let pos=findBlank(dim.cx,dim.cy,placed,edge.dir);
+    
+    // If preferred direction fails, try any direction
+    if(!pos) pos=findBlank(dim.cx,dim.cy,placed);
+    
+    if(pos){
+      const [bx,by]=pos; placed.push([bx,by]);
+      const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
+      balloons.push({num,text:dim.text,type:dim.type,bx,by,tx:dim.cx,ty:dim.cy,tipx,tipy});
       ok++;
-    } else {
-      skip++;
     }
   });
-
   boxCount++;
   render(); updateList(); updateStats();
-  const msg = skip > 0
-    ? `✓ ${ok} placed. ${skip} skipped (no space) — zoom in & use Click mode`
-    : `✓ ${ok} balloons placed`;
-  toast(msg);
+  toast(`✓ ${ok} balloons placed along ${edge.label} edge`);
 }
 
 // ── PLACE ON CLICK ─────────────────────────────────────────────────────────
 function placeOnClick(dx,dy) {
-  if(!allDims.length) { toast('Process drawing first'); return; }
-  const BR = Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-  const placed = balloons.map(b=>[b.bx,b.by]);
-
-  // Find nearest unballooned dimension to click
-  const near = allDims
-    .filter(d => !balloons.some(b => Math.hypot(b.tx-d.cx,b.ty-d.cy) < BR*1.5))
-    .map(d => ({...d, dist: Math.hypot(d.cx-dx, d.cy-dy)}))
-    .filter(d => d.dist < BR*5)
-    .sort((a,b) => a.dist-b.dist);
-
-  if(!near.length) { toast('No dimension near click — try closer or zoom in'); return; }
-
-  const dim    = near[0];
-  const result = findBalloonPos(dim, placed);
-  if(result) {
-    const {cx:bx, cy:by} = result;
-    const [tipx,tipy] = tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
+  if(!allDims.length){toast('Process drawing first');return;}
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
+  const placed=balloons.map(b=>[b.bx,b.by]);
+  const near=allDims
+    .filter(d=>!balloons.some(b=>Math.hypot(b.tx-d.cx,b.ty-d.cy)<BR*1.5))
+    .map(d=>({...d,dist:Math.hypot(d.cx-dx,d.cy-dy)}))
+    .filter(d=>d.dist<BR*4)
+    .sort((a,b)=>a.dist-b.dist);
+  if(!near.length){toast('No dimension near click — try closer');return;}
+  const dim=near[0];
+  const pos=findBlank(dim.cx,dim.cy,placed); // no preferred direction for click mode
+  if(pos){
+    const [bx,by]=pos;
+    const [tipx,tipy]=tipAtEdge(dim.cx,dim.cy,dim.w||50,dim.h||24,bx,by);
     history.push(balloons.length);
-    balloons.push({
-      num: balloons.length+1,
-      text: dim.text, type: dim.type,
-      bx, by, tx: dim.cx, ty: dim.cy,
-      tipx, tipy, tw: dim.w||50, th: dim.h||24
-    });
+    balloons.push({num:balloons.length+1,text:dim.text,type:dim.type,bx,by,tx:dim.cx,ty:dim.cy,tipx,tipy});
     render(); updateList(); updateStats();
-    toast(`✓ Balloon ${balloons.length} → "${dim.text}"`);
-  } else {
-    toast('No clear space found — increase Max leader in settings');
-  }
+    toast(`✓ Balloon ${balloons.length} on "${dim.text}"`);
+  } else toast('No blank space found near that dimension');
 }
 
-// ── COMPRESS FOR API ───────────────────────────────────────────────────────
-// Resize drawing to max 1500px and convert to JPEG
-// Keeps request under 2MB so Google Cloud accepts it
-async function compressForAPI(srcCanvas) {
-  const MAX = 1500;
-  let w = srcCanvas.width, h = srcCanvas.height;
-  if(w > MAX) { const r=MAX/w; w=MAX; h=Math.round(h*r); }
-  const tmp = document.createElement('canvas');
-  tmp.width=w; tmp.height=h;
-  tmp.getContext('2d').drawImage(srcCanvas, 0, 0, w, h);
-  // JPEG at 85% quality
-  const dataUrl = tmp.toDataURL('image/jpeg', 0.85);
-  const b64 = dataUrl.split(',')[1];
-  console.log(`API image: ${w}x${h}, ${Math.round(b64.length/1024)}KB`);
-  return {b64, w, h};
-}
-
-// ── PROCESS DRAWING — Direct Document AI REST API (no server needed) ────────
+// ── PROCESS DRAWING (API call) ─────────────────────────────────────────────
 async function processDrawing() {
-  const cfUrl = document.getElementById('cfUrl').value.trim();
-  if(!cfUrl)    { toast('Enter Cloud Function URL'); return; }
-  if(!rawBytes) { toast('Upload a drawing first');   return; }
-
-  document.getElementById('procBtn').disabled = true;
-  document.getElementById('procSpin').className = 'spin on';
-  document.getElementById('procTxt').textContent = 'Processing...';
-  showP(true); setP(10,'Sending to Document AI...');
-
+  const cfUrl=document.getElementById('cfUrl').value.trim();
+  if(!cfUrl){toast('Please enter your Cloud Function URL');return;}
+  if(!rawBytes){toast('Upload a drawing first');return;}
+  document.getElementById('procBtn').disabled=true;
+  document.getElementById('procSpin').className='spin on';
+  document.getElementById('procTxt').textContent='Processing...';
+  showP(true); setP(15,'Sending to Document AI...');
   try {
-    let b64, sendMime;
-
-    if(rawMime === 'application/pdf') {
-      // Send PDF directly — Layout Parser fully supports PDF
-      const safe  = rawBytes.slice(0);
-      const bytes = new Uint8Array(safe);
-      let bin='';
-      for(let i=0;i<bytes.length;i+=8192)
-        bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+8192,bytes.length)));
-      b64 = btoa(bin);
-      sendMime = 'application/pdf';
-    } else {
-      // For images: convert to PNG — Layout Parser supports PNG but not JPEG
-      const tmp = document.createElement('canvas');
-      tmp.width=W; tmp.height=H;
-      tmp.getContext('2d').drawImage(workCanvas,0,0);
-      const dataUrl = tmp.toDataURL('image/png');
-      b64 = dataUrl.split(',')[1];
-      sendMime = 'image/png';
-    }
-
-    console.log('Sending:', sendMime, Math.round(b64.length/1024)+'KB');
-    setP(30,'Layout Parser processing...');
-
-    const resp = await fetch(cfUrl, {
-      method:  'POST',
-      headers: {'Content-Type': 'text/plain'},
-      body:    JSON.stringify({
-        image_b64:  b64,
-        mime_type:  sendMime,
-        img_width:  W,
-        img_height: H
-      })
+    // Fresh copy to avoid detached ArrayBuffer issues
+    const safeBuf = rawBytes.slice(0);
+    const bytes=new Uint8Array(safeBuf);
+    let bin='';
+    for(let i=0;i<bytes.length;i+=8192)
+      bin+=String.fromCharCode(...bytes.subarray(i,Math.min(i+8192,bytes.length)));
+    const b64=btoa(bin);
+    setP(40,'Document AI reading drawing...');
+    const resp=await fetch(cfUrl,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({image_b64:b64,mime_type:rawMime,img_width:W,img_height:H})
     });
-
-    if(!resp.ok) {
-      const e = await resp.json().catch(()=>({error:'Server error '+resp.status}));
-      throw new Error(e.error||'HTTP '+resp.status);
-    }
-    setP(70,'Parsing...');
-    const data = await resp.json();
-    if(!data.success) throw new Error(data.error||'Failed');
-
-    allDims = data.dimensions || [];
+    if(!resp.ok) throw new Error(`Server error: ${resp.status}`);
+    const data=await resp.json();
+    if(!data.success) throw new Error(data.error||'Processing failed');
+    allDims=data.dimensions||[];
     setP(100,`Found ${allDims.length} dimensions!`);
     setTimeout(()=>showP(false),1200);
-    document.getElementById('dimCount').textContent = allDims.length+' dims loaded';
-    document.getElementById('statsDiv').style.display = 'block';
+    document.getElementById('dimCount').textContent=`${allDims.length} dims loaded`;
+    document.getElementById('statsDiv').style.display='block';
     updateStats();
-    toast(`✓ ${allDims.length} dimensions loaded — draw boxes!`);
-
+    toast(`✓ ${allDims.length} dimensions detected — draw boxes!`);
   } catch(e) {
     showP(false);
     toast('Error: '+e.message);
     console.error(e);
   }
-  document.getElementById('procBtn').disabled = false;
-  document.getElementById('procSpin').className = 'spin';
-  document.getElementById('procTxt').textContent = '⚡ Process Drawing';
+  document.getElementById('procBtn').disabled=false;
+  document.getElementById('procSpin').className='spin';
+  document.getElementById('procTxt').textContent='⚡ Process Drawing';
 }
-// ── PARSE DOCUMENT AI RESPONSE ─────────────────────────────────────────────
-function parseDocAI(doc, imgW, imgH) {
-  if(!doc||!doc.pages||!doc.pages.length) return [];
-  const page = doc.pages[0];
-  const dw   = page.dimension ? page.dimension.width  : imgW;
-  const dh   = page.dimension ? page.dimension.height : imgH;
-  const sx   = imgW/dw, sy = imgH/dh;
-  const txt  = doc.text||'';
-
-  const KNOWN_BAD = new Set(['600','002','1490','246','10719','04701','13343',
-    '12500','12417','10001','9816','6272','9488','9095','13700']);
-  const EXCL = ['section','view','detail','scale','sheet','drawing','revision',
-    'approved','checked','drawn','date','unless','otherwise','specified',
-    'all dimensions','third angle','first angle','chennai','simpson',
-    'pressure die','casting to','treatment','material','form','part no',
-    'pattern','simpsons','must appear','machined angular','hole centres',
-    'pitch circle','if in doubt','remove all burrs','sharp corners',
-    'processing residue','drawing not to be','amendment','property of',
-    'confidential','first used on','computed weight','note:'];
-
-  function isDim(s) {
-    s=s.trim().replace(/\n/g,' ');
-    if(!/[0-9]/.test(s)||s.length>22) return false;
-    if(/^\d{2}\.\d{2}\.\d{4}$/.test(s)) return false;
-    if(/^[A-Z]\d{4,}/.test(s)) return false;
-    if(/^\d{1,2}$/.test(s)&&parseInt(s)<=16) return false;
-    if(KNOWN_BAD.has(s)) return false;
-    const sl=s.toLowerCase();
-    if(EXCL.some(k=>sl.includes(k))) return false;
-    if(/^\d+\.\d+$/.test(s)) return true;
-    if(/^[OoRr\u00d8\u00f8]\d/.test(s)) return true;
-    if(/^\d+\.?\d*\s*[°]/.test(s)) return true;
-    if(/^\d+\.?\d*\s*(MAX|MIN|TYP|DEEP)/i.test(s)) return true;
-    if(/^M\d+\s*[xX]/.test(s)) return true;
-    if(/^0\.\d+/.test(s)) return true;
-    if(s.includes('±')&&/[0-9]/.test(s)) return true;
-    if(/^\d+\.?\d*\s*g\b/i.test(s)) return true;
-    return false;
-  }
-
-  function classify(s) {
-    const t=s.toUpperCase();
-    if(/^[O\u00d8\u00f8]/.test(s)) return 'diameter';
-    if(/^[Rr]\d/.test(s)) return 'radius';
-    if(/°/.test(s)) return 'angle';
-    if(/^M\d/.test(s)||t.includes('TAP')) return 'thread';
-    if(s.includes('±')) return 'tolerance';
-    if(/(MAX|MIN|TYP)/.test(t)) return 'note';
-    return 'linear';
-  }
-
-  function bb(verts) {
-    if(!verts||!verts.length) return null;
-    const xs=verts.map(v=>v.x||0),ys=verts.map(v=>v.y||0);
-    const x=Math.min(...xs)*dw*sx, y=Math.min(...ys)*dh*sy;
-    const w=(Math.max(...xs)-Math.min(...xs))*dw*sx;
-    const h=(Math.max(...ys)-Math.min(...ys))*dh*sy;
-    return {x:Math.round(x),y:Math.round(y),
-            w:Math.max(Math.round(w),20),h:Math.max(Math.round(h),16),
-            cx:Math.round(x+w/2),cy:Math.round(y+h/2)};
-  }
-
-  function getT(layout) {
-    if(!layout||!layout.textAnchor||!layout.textAnchor.textSegments) return '';
-    return layout.textAnchor.textSegments
-      .map(s=>txt.slice(s.startIndex||0,s.endIndex||0))
-      .join('').trim().replace(/\n/g,' ');
-  }
-
-  const items=[], seen=new Set();
-  function add(t,b,conf) {
-    if(!b) return;
-    const {cx,cy}=b;
-    if(cy<imgH*.065||cy>imgH*.885||cx<imgW*.09) return;
-    if(cy<imgH*.10&&cx>imgW*.25) return;
-    if(!isDim(t)) return;
-    const dk=t.replace(/[^0-9RrOo°.]/g,'').slice(0,6)+'_'+Math.round(cx/200)+'_'+Math.round(cy/200);
-    if(seen.has(dk)) return; seen.add(dk);
-    items.push({text:t,type:classify(t),cx:b.cx,cy:b.cy,
-      x:b.x,y:b.y,w:b.w,h:b.h,confidence:Math.round((conf||.9)*1000)/1000});
-  }
-
-  for(const src of [page.paragraphs,page.tokens,page.blocks]) {
-    if(!src) continue;
-    for(const item of src) {
-      const t=getT(item.layout);
-      const b=bb(item.layout&&item.layout.boundingPoly&&item.layout.boundingPoly.normalizedVertices);
-      if(t) add(t,b,item.layout&&item.layout.confidence||.9);
-    }
-  }
-
-  items.sort((a,b2)=>(Math.floor(a.cy/150)*10000+a.cx)-(Math.floor(b2.cy/150)*10000+b2.cx));
-  items.forEach((d,i)=>d.id=i+1);
-  return items;
-}
-
 
 // ── EXPORT PDF ─────────────────────────────────────────────────────────────
 function exportPDF() {
-  if(!workCanvas) { toast('No drawing loaded'); return; }
-  // Render full-resolution version
-  const out  = document.createElement('canvas');
+  if(!workCanvas){toast('No drawing');return;}
+  // Render full drawing with balloons to offscreen canvas
+  const out=document.createElement('canvas');
   out.width=W; out.height=H;
-  const oc   = out.getContext('2d');
+  const oc=out.getContext('2d');
   oc.drawImage(workCanvas,0,0);
-  const BR   = Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-  balloons.forEach(b => {
-    drawBalloon(oc,b.bx,b.by,b.tipx,b.tipy,b.num,BR,b.tw||50,b.th||24);
+  const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
+  // Draw balloons at full resolution
+  const savedCtx=ctx;
+  balloons.forEach(b=>{
+    const origDraw=drawBalloon;
+    // draw directly on oc
+    const BLUE='#0A1EA0';
+    const LW=Math.max(3,Math.round(PX_PER_MM*.5));
+    const DOT=Math.max(6,Math.round(PX_PER_MM*.8));
+    const dx=b.bx-b.tipx,dy=b.by-b.tipy,dist=Math.hypot(dx,dy);
+    if(dist>1){
+      const ex=b.bx-(dx/dist)*(BR+2),ey=b.by-(dy/dist)*(BR+2);
+      oc.strokeStyle=BLUE; oc.lineWidth=LW;
+      oc.beginPath(); oc.moveTo(b.tipx,b.tipy); oc.lineTo(ex,ey); oc.stroke();
+      const nx=(b.tipx-b.bx)/dist,ny=(b.tipy-b.by)/dist,px=-ny,py=nx;
+      const al=BR*.38,aw=BR*.18;
+      oc.fillStyle=BLUE; oc.beginPath();
+      oc.moveTo(b.tipx,b.tipy);
+      oc.lineTo(b.tipx-nx*al+px*aw,b.tipy-ny*al+py*aw);
+      oc.lineTo(b.tipx-nx*al-px*aw,b.tipy-ny*al-py*aw);
+      oc.closePath(); oc.fill();
+    }
+    oc.fillStyle=BLUE; oc.beginPath(); oc.arc(b.tipx,b.tipy,DOT,0,Math.PI*2); oc.fill();
+    oc.fillStyle='#fff'; oc.beginPath(); oc.arc(b.bx,b.by,BR,0,Math.PI*2); oc.fill();
+    oc.strokeStyle=BLUE; oc.lineWidth=Math.max(4,LW*1.2);
+    oc.beginPath(); oc.arc(b.bx,b.by,BR,0,Math.PI*2); oc.stroke();
+    oc.fillStyle=BLUE;
+    oc.font=`bold ${Math.round(BR*1.15)}px 'Segoe UI',sans-serif`;
+    oc.textAlign='center'; oc.textBaseline='middle';
+    oc.fillText(String(b.num),b.bx,b.by+1);
   });
   const {jsPDF}=window.jspdf;
   const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a1'});
@@ -842,16 +680,14 @@ function exportPDF() {
   toast('PDF downloaded ✓');
 }
 
-// ── UI ─────────────────────────────────────────────────────────────────────
+// ── UI HELPERS ─────────────────────────────────────────────────────────────
 function updateList() {
   const list=document.getElementById('blist');
   list.innerHTML='';
   document.getElementById('bc').textContent=balloons.length;
   balloons.forEach(b=>{
     const el=document.createElement('div'); el.className='bi';
-    el.innerHTML=`<div class="bnum">${b.num}</div>
-                  <div class="btxt">${b.text}</div>
-                  <div style="color:#2e7d32;font-size:10px;flex-shrink:0">✓</div>`;
+    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt">${b.text}</div><div style="color:#2e7d32;font-size:10px">✓</div>`;
     list.appendChild(el);
   });
   list.scrollTop=list.scrollHeight;
@@ -863,81 +699,28 @@ function updateStats() {
   document.getElementById('sv3').textContent=boxCount;
 }
 
-const modeHelps = {
-  box:   'Draw a box around a section. Balloons placed in nearest clear white space — never on top of dimensions.',
-  click: 'Click directly on any dimension. Good for vertical dims (18.3, 19.1) that auto-detect misses.',
-  drag:  'Drag any balloon to reposition it. Leader updates automatically.'
-};
-const modeInds = {box:'⬜ Box', click:'🎯 Click', drag:'✋ Drag'};
-
 function setMode(m) {
   mode=m;
-  ['box','click','drag'].forEach(x=>{
-    const el=document.getElementById('m'+x.charAt(0).toUpperCase()+x.slice(1));
-    if(el) el.className='mbtn'+(m===x?' on':'');
-  });
-  document.getElementById('modeHelp').textContent=modeHelps[m]||'';
-  document.getElementById('mInd').textContent=modeInds[m]||m;
-  canvas.style.cursor=m==='drag'?'grab':'crosshair';
+  document.getElementById('mBox').className='mbtn'+(m==='box'?' on':'');
+  document.getElementById('mClick').className='mbtn'+(m==='click'?' on':'');
+  document.getElementById('mMove').className='mbtn'+(m==='pan'?' on':'');
+  const helps={box:'Draw a box around any section — all dimensions inside get balloons instantly.',click:'Click directly on any dimension text to place a balloon.',pan:'Scroll wheel to zoom. Click and drag to pan.'};
+  const inds={box:'□ Box',click:'🎯 Click',pan:'✋ Pan'};
+  document.getElementById('modeHelp').textContent=helps[m];
+  document.getElementById('modeInd').textContent=inds[m];
+  canvas.style.cursor=m==='pan'?'grab':'crosshair';
 }
 
-function undoLast() {
-  if(!history.length){toast('Nothing to undo');return;}
-  balloons=balloons.slice(0,history.pop());
-  boxCount=Math.max(0,boxCount-1);
-  render();updateList();updateStats();toast('Undone ✓');
-}
-
-function clearAll() {
-  balloons=[];history=[];boxCount=0;
-  render();updateList();updateStats();toast('Cleared');
-}
-
-function clearFile() {
-  rawBytes=null;fi.value='';workCanvas=null;
-  allDims=[];balloons=[];blankMap=null;
-  document.getElementById('finfo').style.display='none';
-  document.getElementById('upz').style.display='block';
-  document.getElementById('cph').style.display='flex';
-  document.getElementById('tb').style.display='none';
-  document.getElementById('statsDiv').style.display='none';
-  document.getElementById('blist').innerHTML='';
-  document.getElementById('bc').textContent='0';
-  document.getElementById('dimCount').textContent='0 dims loaded';
-  document.getElementById('procBtn').disabled=!false; // cfUrl used instead
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-}
-
-function fitView() {
-  if(!workCanvas) return;
-  const ca=document.getElementById('ca');
-  const z=Math.min((ca.clientWidth-30)/W,(ca.clientHeight-30)/H,1);
-  zoomLvl=z;
-  panX=Math.round((ca.clientWidth -W*z)/2);
-  panY=10;
-  render();
-}
-
-function doZoom(f) {
-  zoomLvl=Math.max(.05,Math.min(5,zoomLvl*f));
-  render();
-}
-
+function undoLast(){if(!history.length){toast('Nothing to undo');return;}balloons=balloons.slice(0,history.pop());boxCount=Math.max(0,boxCount-1);render();updateList();updateStats();toast('Undone ✓');}
+function clearAll(){balloons=[];history=[];boxCount=0;render();updateList();updateStats();toast('Cleared');}
+function clearFile(){rawBytes=null;fi.value='';workCanvas=null;allDims=[];balloons=[];blankMap=null;document.getElementById('finfo').style.display='none';document.getElementById('upz').style.display='block';document.getElementById('cph').style.display='flex';document.getElementById('tb').style.display='none';document.getElementById('statsDiv').style.display='none';document.getElementById('blist').innerHTML='';document.getElementById('bc').textContent='0';document.getElementById('dimCount').textContent='0 dims loaded';document.getElementById('procBtn').disabled=true;ctx.clearRect(0,0,canvas.width,canvas.height);}
+function fitView(){if(!workCanvas)return;const ca=document.getElementById('ca');const z=Math.min((ca.clientWidth-20)/W,(ca.clientHeight-20)/H,.9);zoomLvl=z;panX=(ca.clientWidth-W*z)/2;panY=10;render();}
+function doZoom(f){zoomLvl=Math.max(.05,Math.min(5,zoomLvl*f));render();}
 function showP(on){document.getElementById('procPrg').style.display=on?'block':'none';}
-function setP(p,m){
-  document.getElementById('procFill').style.width=p+'%';
-  document.getElementById('procMsg').textContent=m;
-}
-
+function setP(p,m){document.getElementById('procFill').style.width=p+'%';document.getElementById('procMsg').textContent=m;}
 let _tt;
-function toast(msg) {
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),4000);
-}
-
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3500);}
 window.addEventListener('resize',()=>{if(workCanvas)render();});
-
 </script>
 </body>
 </html>
