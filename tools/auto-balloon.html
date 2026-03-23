@@ -43,10 +43,12 @@ input.inp:focus{border-color:var(--acc)}
 .sbox{background:#f5f5f0;border-radius:5px;padding:5px;text-align:center}
 .sbox .v{font-size:.95rem;font-weight:700;color:var(--acc)}.sbox .l{font-size:9px;color:#888}
 .blist{flex:1;overflow-y:auto}
-.bi{display:flex;align-items:center;gap:5px;padding:5px .7rem;border-bottom:1px solid #f0f0f0;font-size:11px;cursor:pointer}
-.bi:hover{background:#f8f8f8}
-.bnum{width:18px;height:18px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
-.btxt{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bi{display:flex;align-items:center;gap:6px;padding:7px .7rem;border-bottom:1px solid #eee;font-size:12px;cursor:pointer;min-height:32px}
+.bi:hover{background:#f0f5ff}
+.bnum{width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.btxt{flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.bdel{cursor:pointer;color:#fff;background:#c92a2a;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;border:none;font-weight:700}
+.bdel:hover{background:#a51d1d}
 .ca{flex:1;position:relative;overflow:auto;background:#d0d0cc;display:flex;align-items:flex-start;justify-content:flex-start}
 .cph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;text-align:center}
 .cph p{font-size:.9rem;margin-top:.5rem}
@@ -1163,112 +1165,40 @@ function placeManual(dx,dy) {
 }
 
 // ── RENUMBER ALL — AI-powered or position-based ──────────────────────────
-async function renumberAll() {
+function renumberAll() {
   if(!balloons.length){toast('No balloons to renumber');return;}
   
-  const apiKey=getClaudeKey();
+  // Get current page balloons and sort by position
+  const pageBals=balloons.filter(b=>(b.page||1)===currentPage);
+  const otherBals=balloons.filter(b=>(b.page||1)!==currentPage);
   
-  if(apiKey && workCanvas){
-    // AI-powered renumbering using Claude
-    toast('🤖 AI renumbering...');
-    try{
-      const tmp=document.createElement('canvas');
-      const maxW=1500;
-      const ratio=Math.min(maxW/W,1);
-      tmp.width=Math.round(W*ratio);tmp.height=Math.round(H*ratio);
-      const tc=tmp.getContext('2d');
-      tc.drawImage(workCanvas,0,0,tmp.width,tmp.height);
-      // Draw current balloons on the image for Claude to see
-      const pageBals=balloons.filter(b=>(b.page||1)===currentPage);
-      pageBals.forEach(b=>{
-        const sx=b.bx*ratio,sy=b.by*ratio;
-        tc.fillStyle='#fff';tc.beginPath();tc.arc(sx,sy,12,0,Math.PI*2);tc.fill();
-        tc.strokeStyle='#0A1EA0';tc.lineWidth=2;tc.beginPath();tc.arc(sx,sy,12,0,Math.PI*2);tc.stroke();
-        tc.fillStyle='#0A1EA0';tc.font='bold 11px sans-serif';tc.textAlign='center';tc.textBaseline='middle';
-        tc.fillText(String(b.num),sx,sy);
-      });
-      const imgB64=tmp.toDataURL('image/jpeg',0.8).split(',')[1];
-      
-      const balInfo=pageBals.map(b=>`#${b.num}: "${b.text}" at tip(${Math.round(b.tipx*ratio)},${Math.round(b.tipy*ratio)})`).join('\n');
-      
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({
-          model:'claude-sonnet-4-20250514',max_tokens:2000,
-          messages:[{role:'user',content:[
-            {type:'image',source:{type:'base64',media_type:'image/jpeg',data:imgB64}},
-            {type:'text',text:`This engineering drawing has ${pageBals.length} numbered balloons. Renumber them in logical reading order following engineering conventions:
-
-Current balloons:
-${balInfo}
-
-Rules for renumbering:
-1. Start from top-left of the MAIN VIEW, go left-to-right, top-to-bottom
-2. Group balloons that belong to the same view/section together
-3. Section views (Section A-A, B-B etc.) should be numbered after the main view
-4. Detail views numbered after section views
-5. Notes balloons (if any) numbered last
-6. Sequential 1,2,3... with no gaps
-
-Return ONLY a JSON array mapping old number to new number (no markdown):
-[{"old":1,"new":3},{"old":2,"new":1},...]`}
-          ]}]
-        })
-      });
-      const data=await resp.json();
-      if(data.error) throw new Error(data.error.message);
-      const text=data.content.map(c=>c.text||'').join('');
-      let cleaned=text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
-      const rStart=cleaned.indexOf('[');
-      const rEnd=cleaned.lastIndexOf(']');
-      if(rStart!==-1&&rEnd>rStart) cleaned=cleaned.substring(rStart,rEnd+1);
-      cleaned=repairJSON(cleaned);
-      const mapping=JSON.parse(cleaned);
-      
-      // Apply mapping
-      mapping.forEach(m=>{
-        const bal=pageBals.find(b=>b.num===m.old);
-        if(bal) bal.num=m.new;
-      });
-      
-      render();updateList();updateStats();
-      toast(`✓ AI renumbered ${pageBals.length} balloons in logical order`);
-      return;
-    }catch(e){
-      console.warn('AI renumber failed, using position-based:',e);
-      toast('AI renumber failed — using position sort');
-    }
-  }
+  // Find the starting number (after other pages' balloons)
+  let startNum=1;
+  // For multi-page: previous pages' balloons keep their numbers
+  const prevPages=otherBals.filter(b=>(b.page||1)<currentPage);
+  if(prevPages.length>0) startNum=Math.max(...prevPages.map(b=>b.num))+1;
   
-  // Fallback: position-based renumbering
-  const pages={};
-  balloons.forEach(b=>{
-    const pg=b.page||1;
-    if(!pages[pg]) pages[pg]=[];
-    pages[pg].push(b);
+  // Sort by leader tip position: top→bottom, left→right within rows
+  // Use 20mm row bands for grouping
+  const rowH=Math.max(80,PX_PER_MM*20);
+  pageBals.sort((a,b)=>{
+    const rowA=Math.floor((a.tipy||0)/rowH);
+    const rowB=Math.floor((b.tipy||0)/rowH);
+    if(rowA!==rowB) return rowA-rowB;
+    return (a.tipx||0)-(b.tipx||0);
   });
-  const pageNums=Object.keys(pages).map(Number).sort((a,b)=>a-b);
-  let counter=1;
-  const reordered=[];
-  pageNums.forEach(pg=>{
-    const pageBalloons=pages[pg];
-    pageBalloons.sort((a,b)=>{
-      const rowSize=Math.max(100,PX_PER_MM*15);
-      const rowA=Math.floor((a.tipy||0)/rowSize);
-      const rowB=Math.floor((b.tipy||0)/rowSize);
-      if(rowA!==rowB) return rowA-rowB;
-      return (a.tipx||0)-(b.tipx||0);
-    });
-    pageBalloons.forEach(b=>{
-      b.num=counter++;
-      reordered.push(b);
-    });
-  });
-  balloons.length=0;
-  reordered.forEach(b=>balloons.push(b));
+  
+  // Assign sequential numbers
+  pageBals.forEach((b,i)=>{b.num=startNum+i;});
+  
+  // Renumber subsequent pages too
+  let nextStart=startNum+pageBals.length;
+  const nextPages=[...otherBals.filter(b=>(b.page||1)>currentPage)];
+  nextPages.sort((a,b)=>(a.page||1)-(b.page||1)||(a.tipy||0)-(b.tipy||0));
+  nextPages.forEach(b=>{b.num=nextStart++;});
+  
   render();updateList();updateStats();
-  toast(`✓ Renumbered 1 to ${balloons.length} by position`);
+  toast(`✓ Renumbered: ${pageBals.length} balloons on this page (${startNum}-${startNum+pageBals.length-1})`);
 }
 
 // ── DELETE BALLOON ────────────────────────────────────────────────────────
@@ -1535,7 +1465,7 @@ function updateList() {
   pageBalloons.forEach((b)=>{
     const realIdx=balloons.indexOf(b);
     const el=document.createElement('div'); el.className='bi';
-    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt" style="flex:1;overflow:hidden;text-overflow:ellipsis">${b.text}</div><div style="cursor:pointer;color:#fff;background:#c92a2a;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0" onclick="event.stopPropagation();deleteBalloon(${realIdx})" title="Delete balloon ${b.num}">✕</div>`;
+    el.innerHTML=`<div class="bnum">${b.num}</div><div class="btxt" title="${b.text||'?'}">${b.text||'?'}</div><button class="bdel" onclick="event.stopPropagation();deleteBalloon(${realIdx})" title="Delete #${b.num}">✕</button>`;
     list.appendChild(el);
   });
   list.scrollTop=list.scrollHeight;
