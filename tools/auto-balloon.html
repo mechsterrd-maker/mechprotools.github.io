@@ -314,23 +314,38 @@ function findBalloonPos(dim, placed) {
   // Minimum center-to-center distance
   const minD = BR + Math.hypot(hw, hh);
 
-  // Check if a straight path from (x1,y1) to (x2,y2) is clear of dark pixels
-  function pathClear(x1, y1, x2, y2) {
-    const dx = x2-x1, dy = y2-y1;
-    const steps = Math.max(Math.abs(dx), Math.abs(dy));
-    if(steps < 1) return true;
-    let dark = 0;
-    for(let i=0; i<=steps; i++) {
-      const t = i/steps;
-      const x = Math.round(x1+dx*t);
-      const y = Math.round(y1+dy*t);
-      if(x<0||y<0||x>=W||y>=H) continue;
-      if(blankMap[y*W+x] === 0) dark++;
+  // Leader path must not cross any dimension bounding box (invisible boxes)
+  function lineIntersectsRect(x1,y1,x2,y2, rx1,ry1,rx2,ry2) {
+    if(x1<rx1&&x2<rx1) return false;
+    if(x1>rx2&&x2>rx2) return false;
+    if(y1<ry1&&y2<ry1) return false;
+    if(y1>ry2&&y2>ry2) return false;
+    if(x1>=rx1&&x1<=rx2&&y1>=ry1&&y1<=ry2) return true;
+    if(x2>=rx1&&x2<=rx2&&y2>=ry1&&y2<=ry2) return true;
+    function seg(ax,ay,bx,by,cx,cy,dx,dy){
+      const d1=(dx-cx)*(ay-cy)-(dy-cy)*(ax-cx);
+      const d2=(dx-cx)*(by-cy)-(dy-cy)*(bx-cx);
+      const d3=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax);
+      const d4=(bx-ax)*(dy-ay)-(by-ay)*(dx-ax);
+      return((d1>0&&d2<0||d1<0&&d2>0)&&(d3>0&&d4<0||d3<0&&d4>0));
     }
-    // Allow up to 15% dark pixels along path (dimension text itself)
-    return dark/steps < 0.08;
+    return seg(x1,y1,x2,y2,rx1,ry1,rx2,ry1)||
+           seg(x1,y1,x2,y2,rx2,ry1,rx2,ry2)||
+           seg(x1,y1,x2,y2,rx1,ry2,rx2,ry2)||
+           seg(x1,y1,x2,y2,rx1,ry1,rx1,ry2);
   }
 
+  function pathClear(x1, y1, x2, y2) {
+    const PAD = Math.round(PX_PER_MM * 1.5);
+    for(const d of allDims) {
+      const left=d.cx-d.w/2-PAD, right=d.cx+d.w/2+PAD;
+      const top=d.cy-d.h/2-PAD, bottom=d.cy+d.h/2+PAD;
+      // Skip the source dimension
+      if(x1>=left-PAD&&x1<=right+PAD&&y1>=top-PAD&&y1<=bottom+PAD) continue;
+      if(lineIntersectsRect(x1,y1,x2,y2,left,top,right,bottom)) return false;
+    }
+    return true;
+  }
   // 8 directions to try, prefer perpendicular to dimension orientation
   const dirs = [
     {dx: 0,    dy:-1},   // above
