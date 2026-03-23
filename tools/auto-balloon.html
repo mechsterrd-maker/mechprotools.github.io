@@ -551,19 +551,44 @@ function findBlank(tx,ty,placed,preferDir,sourceDim) {
 // ── DETERMINE BEST EDGE FOR BOX ───────────────────────────────────────────
 function bestEdgeForBox(x1,y1,x2,y2) {
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-  const margin=BR*4;
+  const MAXD=Math.round(parseFloat(document.getElementById('lmx').value)*PX_PER_MM);
+  
+  // Measure ACTUAL blank space available on each side of the box
   const edges=[
-    {dir:270, label:'top',    space: y1 > margin},
-    {dir:90,  label:'bottom', space: (H-y2) > margin},
-    {dir:180, label:'left',   space: x1 > margin},
-    {dir:0,   label:'right',  space: (W-x2) > margin},
+    {dir:270, label:'top',    gap: y1 - H*0.065},     // space above box to drawing top border
+    {dir:90,  label:'bottom', gap: H*0.88 - y2},      // space below box to drawing bottom border
+    {dir:180, label:'left',   gap: x1 - W*0.09},      // space left of box
+    {dir:0,   label:'right',  gap: W*0.97 - x2},      // space right of box
   ];
-  const priority=['top','right','bottom','left'];
-  for(const p of priority) {
-    const e=edges.find(e=>e.label===p);
-    if(e && e.space) return e;
-  }
-  return edges[0];
+  
+  // Count how many dimensions are on each side (outside the box)
+  // Fewer dimensions outside = cleaner balloon placement
+  edges.forEach(e=>{
+    let dimsInWay=0;
+    for(const d of allDims){
+      // Check if dimension is outside the box but in the direction of this edge
+      if(d.cx>=x1&&d.cx<=x2&&d.cy>=y1&&d.cy<=y2) continue; // inside box, skip
+      if(e.label==='top'    && d.cy<y1 && d.cy>y1-MAXD && d.cx>x1-BR*2 && d.cx<x2+BR*2) dimsInWay++;
+      if(e.label==='bottom' && d.cy>y2 && d.cy<y2+MAXD && d.cx>x1-BR*2 && d.cx<x2+BR*2) dimsInWay++;
+      if(e.label==='left'   && d.cx<x1 && d.cx>x1-MAXD && d.cy>y1-BR*2 && d.cy<y2+BR*2) dimsInWay++;
+      if(e.label==='right'  && d.cx>x2 && d.cx<x2+MAXD && d.cy>y1-BR*2 && d.cy<y2+BR*2) dimsInWay++;
+    }
+    e.dimsInWay=dimsInWay;
+  });
+  
+  // Filter edges with enough gap (at least 3x balloon radius)
+  const viable=edges.filter(e=>e.gap>BR*3);
+  if(!viable.length) return edges.sort((a,b)=>b.gap-a.gap)[0]; // fallback: biggest gap
+  
+  // Score: more gap + fewer dimensions in way = better
+  // Normalize: gap score (0-100) + dims penalty
+  const maxGap=Math.max(...viable.map(e=>e.gap));
+  viable.forEach(e=>{
+    e.score=(e.gap/maxGap)*100 - e.dimsInWay*15;
+  });
+  
+  viable.sort((a,b)=>b.score-a.score);
+  return viable[0];
 }
 
 // ── PLACE IN BOX (V3 — clean placement, no overlap) ──────────────────────
