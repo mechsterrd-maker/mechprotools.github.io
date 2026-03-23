@@ -318,30 +318,32 @@ function render() {
   document.getElementById('zl').textContent=Math.round(zoomLvl*100)+'%';
 }
 
-// ── DRAWING BALLOON ────────────────────────────────────────────────────────
+// ── DRAWING BALLOON (V6 — no dot, clean arrow, leader from dim edge) ──────
 function drawBalloon(bx,by,tx,ty,num,BR) {
   const BLUE='#0A1EA0';
   const LW=Math.max(2,Math.round(BR*.08));
-  const DOT=Math.max(4,Math.round(BR*.12));
   const dx=bx-tx,dy=by-ty,dist=Math.hypot(dx,dy);
   if(dist>1){
+    // Leader line from tip to balloon edge (not center)
     const ex=bx-(dx/dist)*(BR+1),ey=by-(dy/dist)*(BR+1);
     ctx.strokeStyle=BLUE; ctx.lineWidth=LW;
     ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(ex,ey); ctx.stroke();
+    // Small arrowhead at tip (no filled dot)
     const nx=(tx-bx)/dist,ny=(ty-by)/dist,px=-ny,py=nx;
-    const al=BR*.38,aw=BR*.18;
-    ctx.fillStyle=BLUE; ctx.beginPath();
-    ctx.moveTo(tx,ty);
-    ctx.lineTo(tx-nx*al+px*aw,ty-ny*al+py*aw);
+    const al=BR*.32,aw=BR*.14;
+    ctx.strokeStyle=BLUE; ctx.lineWidth=Math.max(1.5,LW*0.8);
+    ctx.beginPath();
+    ctx.moveTo(tx-nx*al+px*aw,ty-ny*al+py*aw);
+    ctx.lineTo(tx,ty);
     ctx.lineTo(tx-nx*al-px*aw,ty-ny*al-py*aw);
-    ctx.closePath(); ctx.fill();
+    ctx.stroke();
   }
-  ctx.fillStyle=BLUE;
-  ctx.beginPath(); ctx.arc(tx,ty,DOT,0,Math.PI*2); ctx.fill();
+  // Balloon circle
   ctx.fillStyle='#fff';
   ctx.beginPath(); ctx.arc(bx,by,BR,0,Math.PI*2); ctx.fill();
   ctx.strokeStyle=BLUE; ctx.lineWidth=Math.max(2,LW*1.3);
   ctx.beginPath(); ctx.arc(bx,by,BR,0,Math.PI*2); ctx.stroke();
+  // Number
   ctx.fillStyle=BLUE;
   ctx.font=`bold ${Math.round(BR*1.1)}px 'Segoe UI',sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
@@ -419,15 +421,17 @@ canvas.addEventListener('wheel',e=>{
   render();
 },{passive:false});
 
-// ── TIP AT EDGE ────────────────────────────────────────────────────────────
+// ── TIP AT EDGE — leader exits from the BOTTOM of dimension text ──────────
 function tipAtEdge(tcx,tcy,tw,th,bx,by) {
-  const dx=bx-tcx,dy=by-tcy;
   const hw=tw/2+4,hh=th/2+4;
-  if(Math.abs(dx)<.001) return [tcx,tcy-Math.sign(dy)*hh];
-  if(Math.abs(dy)<.001) return [tcx-Math.sign(dx)*hw,tcy];
-  const tlr=hw/Math.abs(dx),ttb=hh/Math.abs(dy);
-  if(tlr<ttb) return [tcx-Math.sign(dx)*hw,tcy-dy*tlr];
-  return [tcx-dx*ttb,tcy-Math.sign(dy)*hh];
+  // Always prefer bottom exit if balloon is below the dimension
+  if(by>tcy) return [tcx, tcy+hh]; // exit bottom center
+  // If balloon is above, exit top
+  if(by<tcy-hh) return [tcx, tcy-hh];
+  // If balloon is to the side, exit from nearest horizontal edge
+  const dx=bx-tcx;
+  if(Math.abs(dx)>1) return [tcx+Math.sign(dx)*hw, tcy];
+  return [tcx, tcy+hh]; // default: bottom
 }
 
 // ── BLANK SPACE FINDER (V3 — avoids dimensions, avoids leader-over-text) ──
@@ -585,6 +589,10 @@ function bestEdgeForBox(x1,y1,x2,y2) {
   const maxGap=Math.max(...viable.map(e=>e.gap));
   viable.forEach(e=>{
     e.score=(e.gap/maxGap)*100 - e.dimsInWay*15;
+    // Strongly prefer bottom — leaders go downward, avoiding dimensions above
+    if(e.label==='bottom') e.score+=30;
+    // Slightly prefer right (common drafting convention)
+    if(e.label==='right') e.score+=10;
   });
   
   viable.sort((a,b)=>b.score-a.score);
@@ -698,40 +706,38 @@ async function processDrawing() {
   document.getElementById('procTxt').textContent='⚡ Process Drawing';
 }
 
-// ── EXPORT PDF ─────────────────────────────────────────────────────────────
+// ── EXPORT PDF (V6 — no dot, clean arrows) ───────────────────────────────
 function exportPDF() {
   if(!workCanvas){toast('No drawing');return;}
-  // Render full drawing with balloons to offscreen canvas
   const out=document.createElement('canvas');
   out.width=W; out.height=H;
   const oc=out.getContext('2d');
   oc.drawImage(workCanvas,0,0);
   const BR=Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
-  // Draw balloons at full resolution
-  const savedCtx=ctx;
   balloons.forEach(b=>{
-    const origDraw=drawBalloon;
-    // draw directly on oc
     const BLUE='#0A1EA0';
     const LW=Math.max(3,Math.round(PX_PER_MM*.5));
-    const DOT=Math.max(6,Math.round(PX_PER_MM*.8));
     const dx=b.bx-b.tipx,dy=b.by-b.tipy,dist=Math.hypot(dx,dy);
     if(dist>1){
+      // Leader line
       const ex=b.bx-(dx/dist)*(BR+2),ey=b.by-(dy/dist)*(BR+2);
       oc.strokeStyle=BLUE; oc.lineWidth=LW;
       oc.beginPath(); oc.moveTo(b.tipx,b.tipy); oc.lineTo(ex,ey); oc.stroke();
+      // Arrowhead (open, no dot)
       const nx=(b.tipx-b.bx)/dist,ny=(b.tipy-b.by)/dist,px=-ny,py=nx;
-      const al=BR*.38,aw=BR*.18;
-      oc.fillStyle=BLUE; oc.beginPath();
-      oc.moveTo(b.tipx,b.tipy);
-      oc.lineTo(b.tipx-nx*al+px*aw,b.tipy-ny*al+py*aw);
+      const al=BR*.35,aw=BR*.16;
+      oc.strokeStyle=BLUE; oc.lineWidth=Math.max(2,LW*0.8);
+      oc.beginPath();
+      oc.moveTo(b.tipx-nx*al+px*aw,b.tipy-ny*al+py*aw);
+      oc.lineTo(b.tipx,b.tipy);
       oc.lineTo(b.tipx-nx*al-px*aw,b.tipy-ny*al-py*aw);
-      oc.closePath(); oc.fill();
+      oc.stroke();
     }
-    oc.fillStyle=BLUE; oc.beginPath(); oc.arc(b.tipx,b.tipy,DOT,0,Math.PI*2); oc.fill();
+    // Balloon circle
     oc.fillStyle='#fff'; oc.beginPath(); oc.arc(b.bx,b.by,BR,0,Math.PI*2); oc.fill();
     oc.strokeStyle=BLUE; oc.lineWidth=Math.max(4,LW*1.2);
     oc.beginPath(); oc.arc(b.bx,b.by,BR,0,Math.PI*2); oc.stroke();
+    // Number
     oc.fillStyle=BLUE;
     oc.font=`bold ${Math.round(BR*1.15)}px 'Segoe UI',sans-serif`;
     oc.textAlign='center'; oc.textBaseline='middle';
