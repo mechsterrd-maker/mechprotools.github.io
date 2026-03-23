@@ -894,7 +894,7 @@ function clearFile() {
   document.getElementById('blist').innerHTML='';
   document.getElementById('bc').textContent='0';
   document.getElementById('dimCount').textContent='0 dims loaded';
-  document.getElementById('procBtn').disabled=!document.getElementById('apiKey').value.trim();
+  document.getElementById('procBtn').disabled=!false; // cfUrl used instead
   ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
@@ -927,11 +927,7 @@ function toast(msg) {
 }
 
 window.addEventListener('resize',()=>{if(workCanvas)render();});
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('apiKey').addEventListener('input', function(){
-    document.getElementById('procBtn').disabled = !this.value.trim() || !rawBytes;
-  });
-});
+
 </script>
 </body>
 </html>
