@@ -328,7 +328,7 @@ function findBalloonPos(dim, placed) {
       if(blankMap[y*W+x] === 0) dark++;
     }
     // Allow up to 15% dark pixels along path (dimension text itself)
-    return dark/steps < 0.15;
+    return dark/steps < 0.08;
   }
 
   // 8 directions to try, prefer perpendicular to dimension orientation
@@ -358,7 +358,7 @@ function findBalloonPos(dim, placed) {
       if(cy > H*0.88) continue;
 
       // Balloon landing zone must be blank
-      if(!isBlank(cx, cy, Math.round(BR*1.1))) continue;
+      if(!isBlank(cx, cy, Math.round(BR*1.3))) continue;
 
       // No overlap with placed balloons
       if(placed.some(p=>Math.hypot(cx-p[0],cy-p[1]) < BR*2.3)) continue;
@@ -468,16 +468,6 @@ function render() {
     const sby  = Math.round(b.by   * zoomLvl + panY);
     const stx  = Math.round(b.tipx * zoomLvl + panX);
     const sty  = Math.round(b.tipy * zoomLvl + panY);
-
-    // Draw white masking box over dimension text area
-    // This erases any geometry lines crossing through the dimension
-    const PAD  = Math.round(PX_PER_MM * 2.5 * zoomLvl);
-    const tw   = Math.round((b.tw||50) * zoomLvl);
-    const th   = Math.round((b.th||24) * zoomLvl);
-    const tcx  = Math.round(b.tx * zoomLvl + panX);
-    const tcy  = Math.round(b.ty * zoomLvl + panY);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(tcx - tw/2 - PAD, tcy - th/2 - PAD, tw + PAD*2, th + PAD*2);
 
     drawBalloon(ctx, sbx, sby, stx, sty, b.num, BR);
   });
@@ -854,11 +844,6 @@ function exportPDF() {
   oc.drawImage(workCanvas,0,0);
   const BR   = Math.round(parseFloat(document.getElementById('bsz').value)*PX_PER_MM);
   balloons.forEach(b => {
-    // White mask over dimension text
-    const PAD2 = Math.round(PX_PER_MM * 2.5);
-    const tw2  = b.tw||50, th2 = b.th||24;
-    oc.fillStyle = '#ffffff';
-    oc.fillRect(b.tx - tw2/2 - PAD2, b.ty - th2/2 - PAD2, tw2+PAD2*2, th2+PAD2*2);
     drawBalloon(oc,b.bx,b.by,b.tipx,b.tipy,b.num,BR);
   });
   const {jsPDF}=window.jspdf;
