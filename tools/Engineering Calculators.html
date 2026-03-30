@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Engineering Calculators — MechProTools</title>
+<meta name="description" content="Free engineering calculators: cutting speed, feed rate, surface finish, hardness, thread, tolerance stackup, bolt torque, shaft fit, beam deflection, spring design.">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{--acc:#0057b8;--acch:#003d82;--acc2:#e8effc;--acc3:#0057b815;--bg:#ffffff;--bg2:#f5f6f8;--bg3:#ebedf1;--tx:#0f1419;--tx2:#3d4654;--txd:#7d8694;--brd:#d4d9e1;--brd2:#e8ebf0;--grn:#059669;--red:#dc2626;--org:#d97706;--nav-h:52px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx)}
+.mono{font-family:'JetBrains Mono',monospace}
+.nav{height:var(--nav-h);background:#1a1d23;display:flex;align-items:center;position:sticky;top:0;z-index:100}
+.nav-inner{width:100%;padding:0 20px;display:flex;align-items:center;gap:20px}
+.nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-weight:700;font-size:14px}
+.nav-logo-icon{width:28px;height:28px;background:var(--acc);border-radius:6px;display:flex;align-items:center;justify-content:center}
+.nav-logo-icon svg{width:16px;height:16px}
+.nav-links{display:flex;align-items:center;gap:2px;margin-left:auto}
+.nav-links a{color:rgba(255,255,255,.65);text-decoration:none;font-size:12px;font-weight:500;padding:6px 10px;border-radius:5px;transition:all .15s}
+.nav-links a:hover{color:#fff;background:rgba(255,255,255,.1)}
+.nav-links a.active{color:#fff;background:rgba(0,87,184,.55)}
+.hero{background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:32px 20px;text-align:center}
+.hero h1{font-size:clamp(20px,3vw,28px);font-weight:700;color:#fff;margin-bottom:6px}
+.hero p{font-size:13px;color:rgba(255,255,255,.5);max-width:500px;margin:0 auto}
+.calc-tabs{display:flex;gap:0;overflow-x:auto;background:var(--bg);border-bottom:1px solid var(--brd2);padding:0 16px;position:sticky;top:var(--nav-h);z-index:50}
+.ctab{padding:10px 14px;font-size:11px;font-weight:600;color:var(--txd);cursor:pointer;border-bottom:2.5px solid transparent;white-space:nowrap;transition:all .12s}
+.ctab:hover{color:var(--tx2)}.ctab.on{color:var(--acc);border-bottom-color:var(--acc)}
+.calc-body{max-width:900px;margin:0 auto;padding:20px}
+.calc-panel{display:none}.calc-panel.on{display:block}
+.card{background:var(--bg);border:1px solid var(--brd2);border-radius:12px;padding:20px;margin-bottom:16px}
+.card-t{font-size:15px;font-weight:700;color:var(--acc);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card-t svg{width:20px;height:20px;flex-shrink:0}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.fi{display:flex;flex-direction:column;gap:4px}
+.fi label{font-size:11px;font-weight:500;color:var(--tx2)}
+.fi input,.fi select{padding:8px 10px;border:1px solid var(--brd);border-radius:6px;font-size:13px;font-family:inherit;outline:none}
+.fi input:focus,.fi select:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc3)}
+.btn-calc{padding:10px 24px;background:var(--acc);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:12px;transition:background .15s}
+.btn-calc:hover{background:var(--acch)}
+.res-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:14px}
+.res-item{background:var(--acc2);border-radius:8px;padding:10px 12px;text-align:center}
+.res-val{font-size:18px;font-weight:700;color:var(--acc);font-family:'JetBrains Mono',monospace}
+.res-lbl{font-size:9px;color:var(--acch);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+.res-ok{background:#ecfdf5;border:1px solid #a7f3d0}.res-ok .res-val{color:var(--grn)}
+.res-warn{background:#fffbeb;border:1px solid #fde68a}.res-warn .res-val{color:var(--org)}
+.res-bad{background:#fef2f2;border:1px solid #fecaca}.res-bad .res-val{color:var(--red)}
+.diag{background:var(--bg2);border-radius:10px;padding:12px;margin-top:12px;display:flex;justify-content:center}
+.note{background:var(--bg2);border-left:3px solid var(--acc);padding:10px 12px;border-radius:0 6px 6px 0;font-size:11px;color:var(--tx2);margin-top:10px;line-height:1.6}
+.tbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}
+.tbl th{background:var(--acc);color:#fff;padding:6px 8px;text-align:left;font-size:10px}
+.tbl td{padding:5px 8px;border:1px solid var(--brd2)}
+.tbl tr:nth-child(even){background:var(--bg2)}
+.formula{background:#1e2128;color:#93c5fd;padding:10px 14px;border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:8px;overflow-x:auto}
+@media(max-width:640px){.fg{grid-template-columns:1fr}.fg3{grid-template-columns:1fr 1fr}.res-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<nav class="nav"><div class="nav-inner">
+  <a href="../index.html" class="nav-logo"><div class="nav-logo-icon"><svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 8h12M8 2v12"/></svg></div><span>MECHPRO<span style="opacity:.45;font-weight:400">TOOLS</span></span></a>
+  <div class="nav-links">
+    <a href="../index.html">Home</a><a href="../viewer.html">3D Viewer</a>
+    <a href="metal-weight.html">Metal Weight</a><a href="drill-tap.html">Drill &amp; Tap</a>
+    <a href="pdf-balloon.html">PDF Balloon</a><a href="cnc-generator.html">CNC Gen</a>
+    <a href="eng-calc.html" class="active">Calculators</a><a href="../blog.html">Blog</a>
+  </div>
+</div></nav>
+<div class="hero"><h1>Engineering Calculators</h1><p>10 essential calculators for manufacturing engineers — free, accurate, browser-based</p></div>
+
+<div class="calc-tabs" id="tabs"></div>
+<div class="calc-body" id="body"></div>
+
+<script>
+const CALCS=[
+{id:'rpm',name:'Cutting Speed / RPM',icon:'⚙️'},
+{id:'feed',name:'Feed Rate',icon:'↗'},
+{id:'surface',name:'Surface Finish',icon:'◇'},
+{id:'hard',name:'Hardness Converter',icon:'◆'},
+{id:'thread',name:'Thread Calculator',icon:'⊘'},
+{id:'stackup',name:'Tolerance Stackup',icon:'↔'},
+{id:'bolt',name:'Bolt Torque',icon:'🔩'},
+{id:'fit',name:'Shaft Fit / ISO 286',icon:'⊕'},
+{id:'beam',name:'Beam Deflection',icon:'═'},
+{id:'spring',name:'Spring Calculator',icon:'〰'},
+];
+let cur='rpm';
+
+function init(){
+  document.getElementById('tabs').innerHTML=CALCS.map(c=>`<div class="ctab${c.id===cur?' on':''}" onclick="show('${c.id}')">${c.icon} ${c.name}</div>`).join('');
+  buildAll();show('rpm');
+}
+
+function show(id){
+  cur=id;
+  document.querySelectorAll('.ctab').forEach((t,i)=>t.classList.toggle('on',CALCS[i].id===id));
+  document.querySelectorAll('.calc-panel').forEach(p=>p.classList.toggle('on',p.id==='p_'+id));
+}
+
+function buildAll(){
+  const B=document.getElementById('body');
+  B.innerHTML=`
+
+<!-- 1. CUTTING SPEED / RPM -->
+<div class="calc-panel" id="p_rpm">
+<div class="card">
+  <div class="card-t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Cutting Speed / RPM Calculator</div>
+  <div class="fg">
+    <div class="fi"><label>Mode</label><select id="rpm_mode" onchange="toggleRPM()"><option value="toRPM">Cutting speed → RPM</option><option value="toVc">RPM → Cutting speed</option></select></div>
+    <div class="fi"><label>Diameter (mm)</label><input type="number" id="rpm_dia" value="50" step="any"></div>
+    <div class="fi" id="rpm_vc_row"><label>Cutting speed Vc (m/min)</label><input type="number" id="rpm_vc" value="120" step="any"></div>
+    <div class="fi" id="rpm_n_row" style="display:none"><label>RPM (N)</label><input type="number" id="rpm_n" value="800" step="any"></div>
+    <div class="fi"><label>Material preset</label><select id="rpm_mat" onchange="document.getElementById('rpm_vc').value=this.value"><option value="120">Mild Steel (120)</option><option value="100">EN8/C45 (100)</option><option value="90">EN19/4140 (90)</option><option value="70">EN24/4340 (70)</option><option value="60">Stainless Steel (60)</option><option value="80">Cast Iron (80)</option><option value="250">Aluminum (250)</option><option value="180">Brass (180)</option></select></div>
+  </div>
+  <button class="btn-calc" onclick="calcRPM()">Calculate</button>
+  <div class="res-grid" id="rpm_res"></div>
+  <div class="formula">N = (1000 × Vc) / (π × D)&nbsp;&nbsp;|&nbsp;&nbsp;Vc = (π × D × N) / 1000</div>
+  <div class="diag"><svg viewBox="0 0 300 120" fill="none"><circle cx="80" cy="60" r="40" fill="#e8effc" stroke="#0057b8" stroke-width="1.5"/><line x1="80" y1="60" x2="120" y2="60" stroke="#0057b8" stroke-width="1" stroke-dasharray="3,2"/><text x="100" y="55" font-size="9" fill="#0057b8">D/2</text><path d="M60,25 A40,40,0,0,1,100,25" stroke="#c92a2a" stroke-width="1.5" fill="none"/><text x="80" y="18" text-anchor="middle" font-size="9" fill="#c92a2a">Vc</text><polygon points="130,55 150,50 150,60 130,65" fill="#e65100"/><text x="145" y="80" font-size="8" fill="#e65100">Tool</text><text x="200" y="40" font-size="10" fill="#0057b8" font-weight="600">N = RPM</text><text x="200" y="55" font-size="10" fill="#c92a2a">Vc = m/min</text><text x="200" y="70" font-size="10" fill="#333">D = diameter</text></svg></div>
+</div></div>
+
+<!-- 2. FEED RATE -->
+<div class="calc-panel" id="p_feed">
+<div class="card">
+  <div class="card-t">↗ Feed Rate Calculator</div>
+  <div class="fg">
+    <div class="fi"><label>Machine</label><select id="feed_mach"><option value="mill">Milling (VMC)</option><option value="turn">Turning (CNC)</option></select></div>
+    <div class="fi"><label>RPM (N)</label><input type="number" id="feed_rpm" value="1500"></div>
+    <div class="fi"><label>Feed per tooth fz (mm)</label><input type="number" id="feed_fz" value="0.1" step="0.01"></div>
+    <div class="fi"><label>Number of teeth (Z)</label><input type="number" id="feed_z" value="4"></div>
+    <div class="fi"><label>Axial DOC ap (mm)</label><input type="number" id="feed_ap" value="2" step="0.1"></div>
+    <div class="fi"><label>Radial DOC ae (mm)</label><input type="number" id="feed_ae" value="10" step="0.1"></div>
+  </div>
+  <button class="btn-calc" onclick="calcFeed()">Calculate</button>
+  <div class="res-grid" id="feed_res"></div>
+  <div class="formula">Vf = fz × Z × N (mm/min)&nbsp;&nbsp;|&nbsp;&nbsp;MRR = ap × ae × Vf / 1000 (cm³/min)</div>
+</div></div>
+
+<!-- 3. SURFACE FINISH -->
+<div class="calc-panel" id="p_surface">
+<div class="card">
+  <div class="card-t">◇ Surface Finish Converter</div>
+  <div class="fg">
+    <div class="fi"><label>Input type</label><select id="sf_type"><option value="ra">Ra (μm)</option><option value="rz">Rz (μm)</option><option value="rms">RMS (μin)</option><option value="cla">CLA (μin)</option></select></div>
+    <div class="fi"><label>Value</label><input type="number" id="sf_val" value="1.6" step="any"></div>
+  </div>
+  <button class="btn-calc" onclick="calcSF()">Convert</button>
+  <div class="res-grid" id="sf_res"></div>
+  <table class="tbl"><thead><tr><th>Ra (μm)</th><th>Rz (μm)</th><th>RMS (μin)</th><th>CLA (μin)</th><th>N Grade</th><th>Symbol</th></tr></thead>
+  <tbody><tr><td>0.025</td><td>0.1</td><td>1.1</td><td>1</td><td>N1</td><td>▽▽▽▽</td></tr><tr><td>0.05</td><td>0.2</td><td>2.2</td><td>2</td><td>N2</td><td>▽▽▽▽</td></tr><tr><td>0.1</td><td>0.5</td><td>4.4</td><td>4</td><td>N3</td><td>▽▽▽</td></tr><tr><td>0.2</td><td>1.0</td><td>8.8</td><td>8</td><td>N4</td><td>▽▽▽</td></tr><tr><td>0.4</td><td>1.6</td><td>17.6</td><td>16</td><td>N5</td><td>▽▽</td></tr><tr><td>0.8</td><td>4.0</td><td>35</td><td>32</td><td>N6</td><td>▽▽</td></tr><tr><td>1.6</td><td>8.0</td><td>70</td><td>63</td><td>N7</td><td>▽</td></tr><tr><td>3.2</td><td>13</td><td>141</td><td>125</td><td>N8</td><td>▽</td></tr><tr><td>6.3</td><td>25</td><td>277</td><td>250</td><td>N9</td><td>~</td></tr><tr><td>12.5</td><td>50</td><td>550</td><td>500</td><td>N10</td><td>~</td></tr></tbody></table>
+</div></div>
+
+<!-- 4. HARDNESS CONVERTER -->
+<div class="calc-panel" id="p_hard">
+<div class="card">
+  <div class="card-t">◆ Hardness Converter</div>
+  <div class="fg">
+    <div class="fi"><label>Input scale</label><select id="hd_type"><option value="hrc">HRC (Rockwell C)</option><option value="hrb">HRB (Rockwell B)</option><option value="hb">HB (Brinell)</option><option value="hv">HV (Vickers)</option></select></div>
+    <div class="fi"><label>Value</label><input type="number" id="hd_val" value="30" step="any"></div>
+  </div>
+  <button class="btn-calc" onclick="calcHard()">Convert</button>
+  <div class="res-grid" id="hd_res"></div>
+  <div class="note">Conversions are approximate and based on ASTM E140 tables. Exact conversion depends on material type and test conditions.</div>
+</div></div>
+
+<!-- 5. THREAD CALCULATOR -->
+<div class="calc-panel" id="p_thread">
+<div class="card">
+  <div class="card-t">⊘ Thread Calculator</div>
+  <div class="fg">
+    <div class="fi"><label>Thread standard</label><select id="th_std" onchange="loadThread()"><option value="iso">ISO Metric (M)</option><option value="unc">UNC (Unified Coarse)</option><option value="unf">UNF (Unified Fine)</option><option value="bsp">BSP</option></select></div>
+    <div class="fi"><label>Size</label><select id="th_size" onchange="calcThread()"></select></div>
+  </div>
+  <div class="res-grid" id="th_res"></div>
+  <div class="note">Tap drill = Major ⌀ − Pitch. Go/No-go gauges per ISO 6H tolerance class for internal threads.</div>
+</div></div>
+
+<!-- 6. TOLERANCE STACKUP -->
+<div class="calc-panel" id="p_stackup">
+<div class="card">
+  <div class="card-t">↔ Tolerance Stackup Calculator</div>
+  <p style="font-size:12px;color:var(--tx2);margin-bottom:10px">Add dimensions to build a tolerance chain. Positive = adds to gap, Negative = subtracts from gap.</p>
+  <div id="stack_rows"></div>
+  <button class="btn-calc" style="background:var(--grn);margin-right:8px" onclick="addStackRow()">+ Add Dimension</button>
+  <button class="btn-calc" onclick="calcStack()">Calculate Stackup</button>
+  <div class="res-grid" id="stack_res"></div>
+  <div class="formula">Worst case = Σ|tol|&nbsp;&nbsp;|&nbsp;&nbsp;RSS = √(Σtol²)</div>
+</div></div>
+
+<!-- 7. BOLT TORQUE -->
+<div class="calc-panel" id="p_bolt">
+<div class="card">
+  <div class="card-t">🔩 Bolt Torque Calculator</div>
+  <div class="fg">
+    <div class="fi"><label>Bolt size</label><select id="bt_size"><option value="M6">M6</option><option value="M8">M8</option><option value="M10" selected>M10</option><option value="M12">M12</option><option value="M14">M14</option><option value="M16">M16</option><option value="M20">M20</option><option value="M24">M24</option><option value="M30">M30</option></select></div>
+    <div class="fi"><label>Grade</label><select id="bt_grade"><option value="4.6">4.6</option><option value="8.8" selected>8.8</option><option value="10.9">10.9</option><option value="12.9">12.9</option></select></div>
+    <div class="fi"><label>Friction coeff (μ)</label><input type="number" id="bt_mu" value="0.14" step="0.01"></div>
+    <div class="fi"><label>Condition</label><select id="bt_cond" onchange="document.getElementById('bt_mu').value=this.value"><option value="0.14">Dry (0.14)</option><option value="0.12">Lightly oiled (0.12)</option><option value="0.10">MoS2 paste (0.10)</option><option value="0.08">Anti-seize (0.08)</option></select></div>
+  </div>
+  <button class="btn-calc" onclick="calcBolt()">Calculate</button>
+  <div class="res-grid" id="bt_res"></div>
+  <div class="formula">T = K × F × d&nbsp;&nbsp;|&nbsp;&nbsp;K ≈ (0.16P + 0.58μd₂ + μₙDₑ/2) / d</div>
+</div></div>
+
+<!-- 8. SHAFT FIT / ISO 286 -->
+<div class="calc-panel" id="p_fit">
+<div class="card">
+  <div class="card-t">⊕ Shaft / Hole Fit Calculator (ISO 286)</div>
+  <div class="fg">
+    <div class="fi"><label>Basic size (mm)</label><input type="number" id="fit_d" value="25" step="any"></div>
+    <div class="fi"><label>Hole tolerance</label><select id="fit_hole"><option value="H6">H6</option><option value="H7" selected>H7</option><option value="H8">H8</option><option value="H9">H9</option><option value="H11">H11</option></select></div>
+    <div class="fi"><label>Shaft tolerance</label><select id="fit_shaft"><option value="e8">e8</option><option value="f7">f7</option><option value="g6">g6</option><option value="h6">h6</option><option value="js6">js6</option><option value="k6">k6</option><option value="m6">m6</option><option value="n6">n6</option><option value="p6">p6</option><option value="r6">r6</option><option value="s6">s6</option></select></div>
+  </div>
+  <button class="btn-calc" onclick="calcFit()">Calculate</button>
+  <div class="res-grid" id="fit_res"></div>
+  <div class="diag"><svg viewBox="0 0 320 100" id="fit_diag" fill="none"></svg></div>
+  <div class="note">Values are approximate for standard tolerance grades. For critical fits, refer to ISO 286-1:2010 tables.</div>
+</div></div>
+
+<!-- 9. BEAM DEFLECTION -->
+<div class="calc-panel" id="p_beam">
+<div class="card">
+  <div class="card-t">═ Beam Deflection Calculator</div>
+  <div class="fg">
+    <div class="fi"><label>Beam type</label><select id="bm_type"><option value="ss_center">Simply supported — center load</option><option value="ss_udl">Simply supported — UDL</option><option value="cant_end">Cantilever — end load</option><option value="cant_udl">Cantilever — UDL</option></select></div>
+    <div class="fi"><label>Length L (mm)</label><input type="number" id="bm_L" value="1000"></div>
+    <div class="fi"><label>Load (N or N/mm)</label><input type="number" id="bm_F" value="5000"></div>
+    <div class="fi"><label>Cross section</label><select id="bm_sec" onchange="toggleBeamSec()"><option value="rect">Rectangular</option><option value="circ">Circular</option><option value="custom">Custom I (enter)</option></select></div>
+    <div class="fi" id="bm_w_row"><label>Width b (mm)</label><input type="number" id="bm_b" value="50"></div>
+    <div class="fi" id="bm_h_row"><label>Height h (mm)</label><input type="number" id="bm_h" value="80"></div>
+    <div class="fi" id="bm_d_row" style="display:none"><label>Diameter d (mm)</label><input type="number" id="bm_d" value="50"></div>
+    <div class="fi" id="bm_I_row" style="display:none"><label>I (mm⁴)</label><input type="number" id="bm_I" value="1000000"></div>
+    <div class="fi"><label>E (MPa)</label><select id="bm_E"><option value="210000">Steel (210,000)</option><option value="70000">Aluminum (70,000)</option><option value="120000">Cast Iron (120,000)</option><option value="200000">Stainless (200,000)</option></select></div>
+  </div>
+  <button class="btn-calc" onclick="calcBeam()">Calculate</button>
+  <div class="res-grid" id="bm_res"></div>
+  <div class="diag" id="bm_diag"></div>
+</div></div>
+
+<!-- 10. SPRING CALCULATOR -->
+<div class="calc-panel" id="p_spring">
+<div class="card">
+  <div class="card-t">〰 Spring Calculator (Compression)</div>
+  <div class="fg">
+    <div class="fi"><label>Wire diameter d (mm)</label><input type="number" id="sp_d" value="3" step="0.1"></div>
+    <div class="fi"><label>Mean coil ⌀ D (mm)</label><input type="number" id="sp_D" value="20" step="0.1"></div>
+    <div class="fi"><label>Free length L₀ (mm)</label><input type="number" id="sp_L0" value="60"></div>
+    <div class="fi"><label>Active coils Na</label><input type="number" id="sp_Na" value="8"></div>
+    <div class="fi"><label>Material</label><select id="sp_mat"><option value="81500">Spring Steel (G=81,500)</option><option value="79000">Stainless (G=79,000)</option><option value="41000">Phosphor Bronze (G=41,000)</option></select></div>
+    <div class="fi"><label>End type</label><select id="sp_end"><option value="2">Closed & Ground (+2)</option><option value="1">Closed (+1)</option><option value="0">Open (+0)</option></select></div>
+  </div>
+  <button class="btn-calc" onclick="calcSpring()">Calculate</button>
+  <div class="res-grid" id="sp_res"></div>
+  <div class="formula">k = (G×d⁴) / (8×D³×Na)&nbsp;&nbsp;|&nbsp;&nbsp;τ = (8×F×D×Kw) / (π×d³)</div>
+  <div class="diag"><svg viewBox="0 0 300 120" fill="none"><path d="M40,100 L50,20 L60,100 L70,20 L80,100 L90,20 L100,100 L110,20 L120,100 L130,20 L140,100" stroke="#0057b8" stroke-width="2" fill="none"/><line x1="40" y1="100" x2="40" y2="110" stroke="#888"/><line x1="140" y1="100" x2="140" y2="110" stroke="#888"/><text x="90" y="118" text-anchor="middle" font-size="9" fill="#333">Free length L₀</text><line x1="30" y1="60" x2="15" y2="60" stroke="#0057b8" stroke-width="0.5"/><text x="12" y="58" text-anchor="end" font-size="8" fill="#0057b8">d</text><line x1="50" y1="15" x2="70" y2="15" stroke="#c92a2a" stroke-width="0.5"/><text x="60" y="12" text-anchor="middle" font-size="8" fill="#c92a2a">D</text><rect x="160" y="20" width="120" height="80" fill="var(--acc2)" rx="6"/><text x="220" y="40" text-anchor="middle" font-size="9" fill="var(--acc)" font-weight="600">Spring index</text><text x="220" y="55" text-anchor="middle" font-size="9" fill="#333">C = D/d</text><text x="220" y="72" text-anchor="middle" font-size="9" fill="var(--acc)" font-weight="600">Wahl factor</text><text x="220" y="87" text-anchor="middle" font-size="9" fill="#333">Kw = (4C-1)/(4C-4)+0.615/C</text></svg></div>
+</div></div>`;
+
+  // Init thread sizes
+  loadThread();
+  // Init stackup with 3 rows
+  stackRows=[{nom:50,tol:0.1,dir:1},{nom:30,tol:0.05,dir:-1},{nom:10,tol:0.08,dir:1}];
+  renderStack();
+}
+
+// ===== 1. RPM =====
+function toggleRPM(){const m=document.getElementById('rpm_mode').value;
+  document.getElementById('rpm_vc_row').style.display=m==='toRPM'?'':'none';
+  document.getElementById('rpm_n_row').style.display=m==='toVc'?'':'none';}
+function calcRPM(){const m=document.getElementById('rpm_mode').value,d=pv('rpm_dia');
+  let rpm,vc;
+  if(m==='toRPM'){vc=pv('rpm_vc');rpm=1000*vc/(Math.PI*d);}
+  else{rpm=pv('rpm_n');vc=Math.PI*d*rpm/1000;}
+  const r=document.getElementById('rpm_res');
+  r.innerHTML=ri('RPM (N)',Math.round(rpm))+ri('Vc (m/min)',vc.toFixed(1))+ri('Diameter',d+'mm')+ri('Circ. speed',(Math.PI*d*rpm/60000).toFixed(2)+' m/s');}
+
+// ===== 2. FEED =====
+function calcFeed(){const rpm=pv('feed_rpm'),fz=pv('feed_fz'),z=pv('feed_z'),ap=pv('feed_ap'),ae=pv('feed_ae');
+  const vf=fz*z*rpm,mrr=ap*ae*vf/1000,fn=fz*z;
+  document.getElementById('feed_res').innerHTML=ri('Vf (mm/min)',Math.round(vf))+ri('fn (mm/rev)',fn.toFixed(3))+ri('MRR (cm³/min)',mrr.toFixed(1))+ri('Chip load fz',fz+' mm');}
+
+// ===== 3. SURFACE FINISH =====
+function calcSF(){const type=document.getElementById('sf_type').value,val=pv('sf_val');
+  let ra;
+  if(type==='ra')ra=val;
+  else if(type==='rz')ra=val/4.5;
+  else if(type==='rms')ra=val*0.0254/1.11;
+  else ra=val*0.0254;
+  const rz=ra*4.5,rms=ra*1.11/0.0254,cla=ra/0.0254;
+  const grades=[[0.025,'N1'],[0.05,'N2'],[0.1,'N3'],[0.2,'N4'],[0.4,'N5'],[0.8,'N6'],[1.6,'N7'],[3.2,'N8'],[6.3,'N9'],[12.5,'N10']];
+  let ng='N10+';for(const[v,n]of grades)if(ra<=v*1.2){ng=n;break;}
+  document.getElementById('sf_res').innerHTML=ri('Ra (μm)',ra.toFixed(3))+ri('Rz (μm)',rz.toFixed(2))+ri('RMS (μin)',rms.toFixed(1))+ri('CLA (μin)',cla.toFixed(1))+ri('N Grade',ng);}
+
+// ===== 4. HARDNESS =====
+function calcHard(){const type=document.getElementById('hd_type').value,val=pv('hd_val');
+  let hrc,hrb,hb,hv,ts;
+  if(type==='hrc'){hrc=val;hv=hrc*10.7+100;hb=hrc*9.7+100;hrb=Math.min(100,hrc*2.2+40);ts=hrc*34.5+350;}
+  else if(type==='hrb'){hrb=val;hrc=Math.max(0,(hrb-40)/2.2);hb=(hrb-30)*2.8;hv=hb*1.05;ts=hb*3.5;}
+  else if(type==='hb'){hb=val;hrc=Math.max(0,(hb-100)/9.7);hv=hb*1.05;hrb=Math.min(100,hb/2.8+30);ts=hb*3.5;}
+  else{hv=val;hrc=Math.max(0,(hv-100)/10.7);hb=hv/1.05;hrb=Math.min(100,hb/2.8+30);ts=hb*3.5;}
+  document.getElementById('hd_res').innerHTML=ri('HRC',hrc.toFixed(1))+ri('HRB',hrb.toFixed(1))+ri('HB (Brinell)',Math.round(hb))+ri('HV (Vickers)',Math.round(hv))+ri('Tensile ~MPa',Math.round(ts));}
+
+// ===== 5. THREAD =====
+const THREADS={
+  iso:[['M3',3,0.5],['M4',4,0.7],['M5',5,0.8],['M6',6,1],['M8',8,1.25],['M10',10,1.5],['M12',12,1.75],['M14',14,2],['M16',16,2],['M18',18,2.5],['M20',20,2.5],['M22',22,2.5],['M24',24,3],['M27',27,3],['M30',30,3.5],['M36',36,4],['M42',42,4.5],['M48',48,5]],
+  unc:[['1/4-20',6.35,1.27],['5/16-18',7.94,1.41],['3/8-16',9.525,1.588],['7/16-14',11.11,1.814],['1/2-13',12.7,1.954],['5/8-11',15.875,2.309],['3/4-10',19.05,2.54],['7/8-9',22.225,2.822],['1-8',25.4,3.175]],
+  unf:[['1/4-28',6.35,0.907],['5/16-24',7.94,1.058],['3/8-24',9.525,1.058],['7/16-20',11.11,1.27],['1/2-20',12.7,1.27],['5/8-18',15.875,1.41],['3/4-16',19.05,1.588]],
+  bsp:[['1/8',9.728,0.907],['1/4',13.157,1.337],['3/8',16.662,1.337],['1/2',20.955,1.814],['3/4',26.441,1.814],['1',33.249,2.309],['1-1/4',41.91,2.309],['1-1/2',47.803,2.309],['2',59.614,2.309]]
+};
+function loadThread(){const std=document.getElementById('th_std').value,sel=document.getElementById('th_size');
+  sel.innerHTML=THREADS[std].map(t=>`<option value="${t[0]}">${t[0]}</option>`).join('');calcThread();}
+function calcThread(){const std=document.getElementById('th_std').value,sz=document.getElementById('th_size').value;
+  const t=THREADS[std].find(x=>x[0]===sz);if(!t)return;
+  const maj=t[1],p=t[2],min=maj-1.0825*p,pitch_d=maj-0.6495*p,tap=maj-p;
+  document.getElementById('th_res').innerHTML=ri('Major ⌀',maj.toFixed(3)+'mm')+ri('Minor ⌀',min.toFixed(3)+'mm')+ri('Pitch ⌀',pitch_d.toFixed(3)+'mm')+ri('Pitch',p.toFixed(3)+'mm')+ri('Tap drill ⌀',tap.toFixed(2)+'mm')+ri('TPI',Math.round(25.4/p));}
+
+// ===== 6. STACKUP =====
+let stackRows=[];
+function addStackRow(){stackRows.push({nom:10,tol:0.1,dir:1});renderStack();}
+function delStackRow(i){stackRows.splice(i,1);renderStack();}
+function renderStack(){const el=document.getElementById('stack_rows');
+  el.innerHTML=stackRows.map((r,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+    <span style="font-size:11px;color:var(--txd);min-width:20px">${i+1}.</span>
+    <select style="width:50px;padding:5px;border:1px solid var(--brd);border-radius:4px;font-size:11px" onchange="stackRows[${i}].dir=parseInt(this.value)"><option value="1"${r.dir===1?' selected':''}>+</option><option value="-1"${r.dir===-1?' selected':''}>−</option></select>
+    <input type="number" value="${r.nom}" step="any" style="width:80px;padding:5px;border:1px solid var(--brd);border-radius:4px;font-size:12px" placeholder="Nominal" onchange="stackRows[${i}].nom=parseFloat(this.value)||0">
+    <span style="font-size:10px;color:var(--txd)">±</span>
+    <input type="number" value="${r.tol}" step="any" style="width:60px;padding:5px;border:1px solid var(--brd);border-radius:4px;font-size:12px" placeholder="Tol" onchange="stackRows[${i}].tol=parseFloat(this.value)||0">
+    <span style="font-size:10px;color:var(--txd)">mm</span>
+    ${stackRows.length>1?`<span style="cursor:pointer;color:var(--red);font-weight:700;font-size:14px" onclick="delStackRow(${i})">✕</span>`:''}
+  </div>`).join('');}
+function calcStack(){
+  let nomSum=0,wcSum=0,rssSum=0;
+  stackRows.forEach(r=>{nomSum+=r.dir*r.nom;wcSum+=Math.abs(r.tol);rssSum+=r.tol*r.tol;});
+  const rss=Math.sqrt(rssSum);
+  document.getElementById('stack_res').innerHTML=ri('Nominal gap',nomSum.toFixed(3)+'mm')+ri('Worst-case ±',wcSum.toFixed(3)+'mm')+ri('RSS ±',rss.toFixed(3)+'mm')+ri('WC max',((nomSum+wcSum)).toFixed(3)+'mm')+ri('WC min',((nomSum-wcSum)).toFixed(3)+'mm')+ri('RSS max',((nomSum+rss)).toFixed(3)+'mm')+ri('RSS min',((nomSum-rss)).toFixed(3)+'mm')+ri('Dimensions',stackRows.length);}
+
+// ===== 7. BOLT TORQUE =====
+function calcBolt(){const sz=document.getElementById('bt_size').value,gr=document.getElementById('bt_grade').value,mu=pv('bt_mu');
+  const boltData={M6:{d:6,p:1,As:20.1},M8:{d:8,p:1.25,As:36.6},M10:{d:10,p:1.5,As:58},M12:{d:12,p:1.75,As:84.3},M14:{d:14,p:2,As:115},M16:{d:16,p:2,As:157},M20:{d:20,p:2.5,As:245},M24:{d:24,p:3,As:353},M30:{d:30,p:3.5,As:561}};
+  const gradeYield={4.6:240,8.8:640,10.9:900,12.9:1080};
+  const b=boltData[sz];if(!b)return;
+  const sy=gradeYield[gr],proof=sy*0.9,clampF=proof*b.As;
+  const K=0.2*mu/0.14;// simplified torque coefficient
+  const torque=K*clampF*b.d/1000;
+  document.getElementById('bt_res').innerHTML=ri('Torque',torque.toFixed(1)+' Nm')+ri('Clamp force',Math.round(clampF)+' N')+ri('Clamp force',(clampF/1000).toFixed(1)+' kN')+ri('Proof load',Math.round(proof)+' MPa')+ri('Stress area',b.As+' mm²')+ri('Bolt stress',Math.round(clampF/b.As)+' MPa');}
+
+// ===== 8. SHAFT FIT =====
+function calcFit(){const d=pv('fit_d'),holeT=document.getElementById('fit_hole').value,shaftT=document.getElementById('fit_shaft').value;
+  // Simplified ISO 286 calculation
+  const IT={6:10,7:16,8:25,9:40,11:100};// IT grades in μm for 18-30mm range (approximate)
+  const dRange=d<=3?0:d<=6?1:d<=10?2:d<=18?3:d<=30?4:d<=50?5:d<=80?6:7;
+  const itMult=[0.6,0.73,0.87,1.0,1.15,1.3,1.54,1.85][dRange];
+  function getHoleLimits(t){const grade=parseInt(t.slice(1)),tol=IT[grade]*itMult;return{lo:0,hi:tol};}
+  function getShaftLimits(t){
+    const letter=t[0],grade=parseInt(t.slice(1)),tol=IT[grade]*itMult;
+    const devs={e:-40,f:-20,g:-7,h:0,js:-tol/2,k:2,m:8,n:12,p:18,r:23,s:28};
+    const dev=(devs[letter]||0)*itMult;
+    return letter==='js'?{lo:-tol/2,hi:tol/2}:{lo:dev,hi:dev+tol};
+  }
+  const hole=getHoleLimits(holeT),shaft=getShaftLimits(shaftT);
+  const maxCl=hole.hi-shaft.lo,minCl=hole.lo-shaft.hi;
+  const fitType=minCl>0?'Clearance':maxCl<0?'Interference':'Transition';
+  const cls=fitType==='Clearance'?'res-ok':fitType==='Interference'?'res-bad':'res-warn';
+  document.getElementById('fit_res').innerHTML=
+    `<div class="res-item ${cls}"><div class="res-val">${fitType}</div><div class="res-lbl">Fit type</div></div>`+
+    ri('Hole max',d.toFixed(1)+'+'+(hole.hi/1000).toFixed(3))+ri('Hole min',d.toFixed(1)+'+'+(hole.lo/1000).toFixed(3))+
+    ri('Shaft max',d.toFixed(1)+'+'+(shaft.hi/1000).toFixed(3))+ri('Shaft min',d.toFixed(1)+'+'+(shaft.lo/1000).toFixed(3))+
+    ri('Max clearance',(maxCl/1000).toFixed(3)+' mm')+ri('Min clearance',(minCl/1000).toFixed(3)+' mm');
+  // Draw visual
+  const svg=document.getElementById('fit_diag');
+  svg.innerHTML=`<rect x="20" y="10" width="120" height="80" fill="#e8effc" stroke="#0057b8" rx="4"/>
+    <rect x="55" y="15" width="50" height="70" fill="${fitType==='Clearance'?'#ecfdf5':fitType==='Interference'?'#fef2f2':'#fffbeb'}" stroke="${fitType==='Clearance'?'#059669':fitType==='Interference'?'#dc2626':'#d97706'}" stroke-width="1.5" rx="3"/>
+    <text x="80" y="55" text-anchor="middle" font-size="10" fill="#333" font-weight="600">${shaftT}</text>
+    <text x="80" y="7" text-anchor="middle" font-size="9" fill="#0057b8">${holeT} Hole</text>
+    <text x="200" y="25" font-size="9" fill="#333">Hole: ${holeT}</text>
+    <text x="200" y="40" font-size="9" fill="#0057b8">+${(hole.hi/1000).toFixed(3)} / +${(hole.lo/1000).toFixed(3)}</text>
+    <text x="200" y="60" font-size="9" fill="#333">Shaft: ${shaftT}</text>
+    <text x="200" y="75" font-size="9" fill="#c92a2a">+${(shaft.hi/1000).toFixed(3)} / +${(shaft.lo/1000).toFixed(3)}</text>
+    <text x="200" y="95" font-size="10" fill="${fitType==='Clearance'?'#059669':'#dc2626'}" font-weight="600">${fitType} Fit</text>`;}
+
+// ===== 9. BEAM =====
+function toggleBeamSec(){const s=document.getElementById('bm_sec').value;
+  document.getElementById('bm_w_row').style.display=s==='rect'?'':'none';
+  document.getElementById('bm_h_row').style.display=s==='rect'?'':'none';
+  document.getElementById('bm_d_row').style.display=s==='circ'?'':'none';
+  document.getElementById('bm_I_row').style.display=s==='custom'?'':'none';}
+function calcBeam(){const type=document.getElementById('bm_type').value,L=pv('bm_L'),F=pv('bm_F'),E=parseFloat(document.getElementById('bm_E').value);
+  const sec=document.getElementById('bm_sec').value;
+  let I;
+  if(sec==='rect'){const b=pv('bm_b'),h=pv('bm_h');I=b*h*h*h/12;}
+  else if(sec==='circ'){const d=pv('bm_d');I=Math.PI*d*d*d*d/64;}
+  else I=pv('bm_I');
+  let defl,stress,R1,R2;
+  if(type==='ss_center'){defl=F*L*L*L/(48*E*I);stress=F*L/(4*(I/(pv(sec==='rect'?'bm_h':'bm_d')/2)));R1=R2=F/2;}
+  else if(type==='ss_udl'){defl=5*F*L*L*L*L/(384*E*I);stress=F*L*L/(8*(I/(pv(sec==='rect'?'bm_h':'bm_d')/2)));R1=R2=F*L/2;}
+  else if(type==='cant_end'){defl=F*L*L*L/(3*E*I);stress=F*L/(I/(pv(sec==='rect'?'bm_h':'bm_d')/2));R1=F;R2=0;}
+  else{defl=F*L*L*L*L/(8*E*I);stress=F*L*L/(2*(I/(pv(sec==='rect'?'bm_h':'bm_d')/2)));R1=F*L;R2=0;}
+  document.getElementById('bm_res').innerHTML=ri('Deflection',defl.toFixed(3)+' mm')+ri('Max stress',stress.toFixed(1)+' MPa')+ri('I (mm⁴)',I.toFixed(0))+ri('Reaction',R1.toFixed(0)+' N');
+  // Simple beam diagram
+  document.getElementById('bm_diag').innerHTML=`<svg viewBox="0 0 320 80" fill="none">
+    <line x1="40" y1="50" x2="280" y2="50" stroke="#333" stroke-width="2"/>
+    ${type.startsWith('ss')?'<polygon points="40,50 30,65 50,65" fill="#888"/><polygon points="280,50 270,65 290,65" fill="#888"/>':'<rect x="35" y="50" width="10" height="20" fill="#888"/>'}
+    ${type.includes('center')?'<line x1="160" y1="20" x2="160" y2="50" stroke="#c92a2a" stroke-width="2"/><polygon points="155,45 165,45 160,50" fill="#c92a2a"/><text x="160" y="15" text-anchor="middle" font-size="9" fill="#c92a2a">F</text>':''}
+    ${type.includes('udl')?'<line x1="60" y1="35" x2="260" y2="35" stroke="#c92a2a" stroke-width="1.5"/><text x="160" y="30" text-anchor="middle" font-size="8" fill="#c92a2a">w (N/mm)</text>':''}
+    ${type.includes('end')?'<line x1="280" y1="20" x2="280" y2="50" stroke="#c92a2a" stroke-width="2"/><polygon points="275,45 285,45 280,50" fill="#c92a2a"/><text x="280" y="15" text-anchor="middle" font-size="9" fill="#c92a2a">F</text>':''}
+    <text x="160" y="72" text-anchor="middle" font-size="9" fill="#333">L = ${L} mm</text>
+    <path d="M160,50 Q160,${50+Math.min(defl/L*500,15)} 160,${50+Math.min(defl/L*500,15)}" stroke="#0057b8" stroke-width="1.5" stroke-dasharray="4,3"/>
+  </svg>`;}
+
+// ===== 10. SPRING =====
+function calcSpring(){const d=pv('sp_d'),D=pv('sp_D'),L0=pv('sp_L0'),Na=pv('sp_Na'),G=parseFloat(document.getElementById('sp_mat').value),endCoils=parseInt(document.getElementById('sp_end').value);
+  const Nt=Na+endCoils,C=D/d;
+  const Kw=(4*C-1)/(4*C-4)+0.615/C;// Wahl factor
+  const k=G*d*d*d*d/(8*D*D*D*Na);// Spring rate N/mm
+  const solidL=Nt*d;// Solid length
+  const maxDefl=L0-solidL;
+  const maxF=k*maxDefl;
+  const tauMax=8*maxF*D*Kw/(Math.PI*d*d*d);
+  const pitch=L0/Na;
+  document.getElementById('sp_res').innerHTML=ri('Spring rate k',k.toFixed(2)+' N/mm')+ri('Spring rate',(k*1000).toFixed(0)+' N/m')+ri('Spring index C',C.toFixed(1))+ri('Wahl factor Kw',Kw.toFixed(3))+ri('Solid length',solidL.toFixed(1)+' mm')+ri('Max deflection',maxDefl.toFixed(1)+' mm')+ri('Max force',maxF.toFixed(1)+' N')+ri('Max shear stress',Math.round(tauMax)+' MPa')+ri('Total coils Nt',Nt)+ri('Pitch',pitch.toFixed(1)+' mm');}
+
+// HELPERS
+function pv(id){return parseFloat(document.getElementById(id)?.value)||0;}
+function ri(lbl,val){return`<div class="res-item"><div class="res-val">${val}</div><div class="res-lbl">${lbl}</div></div>`;}
+
+init();
+</script>
+</body>
+</html>
